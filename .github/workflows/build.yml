@@ -20,6 +20,8 @@ jobs:
           node-version: '20'
       - name: Install dependencies
         run: npm install --ignore-scripts
+      - name: Rebuild native dependencies
+        run: npm rebuild sqlite3
       - name: Run tests with coverage
         run: npm run test:coverage
       - name: SonarCloud Scan
