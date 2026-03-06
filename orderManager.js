@@ -7,7 +7,7 @@ let lastOrderId = 0;
 function createOrder(order, cb) {
   // basic validation
   if (!order || !order.items) {
-    return { error: "invalid order" };
+    return cb({ error: "invalid order" });
   }
 
   var firstId = order.items[0].pizzaId; 
