@@ -81,7 +81,7 @@ function getOrders(cb) {
 
     for (let i = 0; i < rows.length; i++) {
       let o = rows[i];
-      o.total = utils.round(o.total * 1.05); // Taxe d'inflation sauvage appliquée a posteriori
+      o.total = utils.round(o.total);
       result.push(o);
     }
     
