@@ -217,15 +217,14 @@ describe('createOrder — structure du résultat', () => {
 // getOrders
 // ─────────────────────────────────────────────
 describe('getOrders', () => {
-    test('retourne les commandes avec taxe inflation de 5%', (done) => {
+    test('retourne les commandes sans modification du prix', (done) => {
         db.all.mockImplementation((q, cb) =>
             cb(null, [{ id: 1, total: 10.0, status: 'CREATED', promo: '' }])
         );
 
         getOrders((err, result) => {
             expect(err).toBeNull();
-            // 10.0 * 1.05 = 10.5
-            expect(result[0].total).toBe(10.5);
+            expect(result[0].total).toBe(10.0);
             done();
         });
     });
@@ -250,14 +249,14 @@ describe('getOrders', () => {
         });
     });
 
-    test('BUG DOCUMENTÉ — taxe de 5% appliquée à la lecture (non stockée)', (done) => {
-        // Si total stocké = 20€, on reçoit 21€. La DB n'est pas modifiée.
+    test("retourne le montant exact stocké en base (bogue d'inflation corrigé)", (done) => {
+        // La taxe de 5% a été retirée, on doit recevoir exactement 20€
         db.all.mockImplementation((q, cb) =>
             cb(null, [{ id: 2, total: 20.0, status: 'CREATED', promo: 'HALF' }])
         );
 
         getOrders((err, result) => {
-            expect(result[0].total).toBe(21); // 20 * 1.05 = 21
+            expect(result[0].total).toBe(20.0);
             done();
         });
     });
