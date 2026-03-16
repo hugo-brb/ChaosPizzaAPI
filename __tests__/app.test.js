@@ -20,6 +20,7 @@ describe('GET /pizzas', () => {
 describe('POST /orders', () => {
   test('devrait créer une commande valide', async () => {
     const order = {
+      email: 'integration@example.com',
       items: [
         { pizzaId: 1, qty: 2 }
       ]
@@ -48,6 +49,7 @@ describe('POST /orders', () => {
 
   test('devrait appliquer le code promo FREEPIZZA', async () => {
     const order = {
+      email: 'integration@example.com',
       items: [
         { pizzaId: 1, qty: 1 }
       ],
@@ -65,6 +67,7 @@ describe('POST /orders', () => {
 
   test('devrait appliquer le code promo HALF', async () => {
     const order = {
+      email: 'integration@example.com',
       items: [
         { pizzaId: 1, qty: 2 }
       ],
@@ -83,6 +86,7 @@ describe('POST /orders', () => {
 
   test('devrait appliquer la réduction multi-items', async () => {
     const order = {
+      email: 'integration@example.com',
       items: [
         { pizzaId: 1, qty: 1 },
         { pizzaId: 2, qty: 1 }
@@ -98,6 +102,16 @@ describe('POST /orders', () => {
     expect(response.body).toHaveProperty('total');
     // Réduction de 10% appliquée
   });
+
+  test('devrait rejeter une commande sans email', async () => {
+    const response = await request(app)
+      .post('/orders')
+      .send({ items: [{ pizzaId: 1, qty: 1 }] })
+      .set('Content-Type', 'application/json');
+
+    expect(response.status).toBe(400);
+    expect(response.body).toMatchObject({ error: 'invalid email' });
+  });
 });
 
 describe('GET /orders', () => {
@@ -106,5 +120,25 @@ describe('GET /orders', () => {
     
     expect(response.status).toBe(200);
     expect(Array.isArray(response.body)).toBe(true);
+  });
+});
+
+describe('GET /orders/user/:email', () => {
+  test('devrait retourner un historique de commandes filtré par email', async () => {
+    const specificEmail = 'history@example.com';
+
+    await request(app)
+      .post('/orders')
+      .send({
+        email: specificEmail,
+        items: [{ pizzaId: 1, qty: 1 }]
+      })
+      .set('Content-Type', 'application/json');
+
+    const response = await request(app).get(`/orders/user/${specificEmail}`);
+
+    expect(response.status).toBe(200);
+    expect(Array.isArray(response.body)).toBe(true);
+    expect(response.body.every((order) => order.email === specificEmail)).toBe(true);
   });
 });

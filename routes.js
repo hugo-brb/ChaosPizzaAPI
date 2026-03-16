@@ -23,4 +23,18 @@ router.get('/orders', (req, res) => {
   });
 });
 
+router.get('/orders/user/:email', (req, res) => {
+  orders.getOrdersByEmail(req.params.email, (err, result) => {
+    if (err && err.error) {
+      return res.status(400).json(err);
+    }
+
+    if (err) {
+      return res.status(500).json({ error: 'db error' });
+    }
+
+    res.json(result);
+  });
+});
+
 module.exports = router;
