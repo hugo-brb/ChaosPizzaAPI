@@ -67,7 +67,7 @@ describe('POST /orders', () => {
 
         const res = await request(app)
             .post('/orders')
-            .send({ items: [{ pizzaId: 1, qty: 2 }] })
+            .send({ email: 'client@example.com', items: [{ pizzaId: 1, qty: 2 }] })
             .set('Content-Type', 'application/json');
 
         expect(res.status).toBe(200);
@@ -81,7 +81,7 @@ describe('POST /orders', () => {
 
         const res = await request(app)
             .post('/orders')
-            .send({ items: [{ pizzaId: 2, qty: 1 }] })
+            .send({ email: 'client@example.com', items: [{ pizzaId: 2, qty: 1 }] })
             .set('Content-Type', 'application/json');
 
         expect(res.body).toHaveProperty('id');
@@ -122,7 +122,7 @@ describe('POST /orders', () => {
 
         const res = await request(app)
             .post('/orders')
-            .send({ items: [{ pizzaId: 1, qty: 1 }] })
+            .send({ email: 'client@example.com', items: [{ pizzaId: 1, qty: 1 }] })
             .set('Content-Type', 'application/json');
 
         expect(res.status).toBe(400);
@@ -136,7 +136,7 @@ describe('POST /orders', () => {
 
         const res = await request(app)
             .post('/orders')
-            .send({ items: [{ pizzaId: 9999, qty: 1 }] })
+            .send({ email: 'client@example.com', items: [{ pizzaId: 9999, qty: 1 }] })
             .set('Content-Type', 'application/json');
 
         expect(res.status).toBe(400);
@@ -191,6 +191,43 @@ describe('GET /orders', () => {
 
         // La route ne gère pas le cas err, elle appelle res.json(null) → 200 avec null
         expect(res.status).toBe(200);
+    });
+});
+
+// ─────────────────────────────────────────────
+// GET /orders/user/:email
+// ─────────────────────────────────────────────
+describe('GET /orders/user/:email', () => {
+    test('200 — retourne l\'historique des commandes d\'un email', async () => {
+        const fakeOrders = [
+            { id: 1, total: 21, status: 'CREATED', promo: '', email: 'client@example.com' },
+            { id: 2, total: 10.5, status: 'CREATED', promo: 'HALF', email: 'client@example.com' },
+        ];
+        orders.getOrdersByEmail.mockImplementation((email, cb) => cb(null, fakeOrders));
+
+        const res = await request(app).get('/orders/user/client@example.com');
+
+        expect(res.status).toBe(200);
+        expect(Array.isArray(res.body)).toBe(true);
+        expect(res.body).toHaveLength(2);
+    });
+
+    test('200 — retourne un tableau vide si aucune commande pour cet email', async () => {
+        orders.getOrdersByEmail.mockImplementation((email, cb) => cb(null, []));
+
+        const res = await request(app).get('/orders/user/client@example.com');
+
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual([]);
+    });
+
+    test('400 — email invalide', async () => {
+        orders.getOrdersByEmail.mockImplementation((email, cb) => cb({ error: 'invalid email' }));
+
+        const res = await request(app).get('/orders/user/not-an-email');
+
+        expect(res.status).toBe(400);
+        expect(res.body).toEqual({ error: 'invalid email' });
     });
 });
 
