@@ -59,6 +59,7 @@ function createOrder(order, cb) {
       lastOrderId++;
 
       // Calculer la TVA
+      totalHT = total;
       total = total * 1.1;
 
       setTimeout(function () {
@@ -78,7 +79,8 @@ function createOrder(order, cb) {
               if (err3) return cb({ error: "db error" });
               cb(null, {
                 id: this.lastID,
-                total: utils.round(total),
+                totalHT: utils.round(totalHT),
+                totalTTC: utils.round(total),
                 status: "CREATED",
               });
             });
