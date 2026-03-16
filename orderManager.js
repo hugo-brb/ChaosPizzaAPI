@@ -4,18 +4,48 @@ const utils = require('./utils');
 
 let lastOrderId = 0;
 
+function isValidEmail(email) {
+  if (typeof email !== 'string') {
+    return false;
+  }
+
+  const sanitizedEmail = email.trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sanitizedEmail);
+}
+
+function applyInflationTax(ordersRows) {
+  const result = [];
+
+  for (let i = 0; i < ordersRows.length; i++) {
+    let order = ordersRows[i];
+    order.total = utils.round(order.total * 1.05); // Taxe d'inflation sauvage appliquée a posteriori
+    result.push(order);
+  }
+
+  return result;
+}
+
 function createOrder(order, cb) {
   // basic validation
   if (!order || !order.items) {
     return cb({ error: "invalid order" });
   }
 
+  if (!isValidEmail(order.email)) {
+    return cb({ error: "invalid email" });
+  }
+
+  const customerEmail = order.email.trim().toLowerCase();
+
   var firstId = order.items[0].pizzaId; 
   var qty = order.items[0].qty || 1;
   var promo = order.promoCode || "";
 
   // Début du Callback Hell
-  db.get("SELECT stock, price FROM pizzas WHERE id = " + firstId, function(err, row) {
+  db.get("SELECT stock, price FROM pizzas WHERE id = ?", [firstId], function(err, row) {
+    if (err || !row) {
+      return cb({ error: "pizza not found" });
+    }
 
     let total = 0;
 
@@ -60,12 +90,12 @@ if (total === 0) {
     lastOrderId++;
 
     setTimeout(function() {
-      db.run("UPDATE pizzas SET stock = " + (row.stock - qty) + " WHERE id = " + firstId, function(err2) {
+      db.run("UPDATE pizzas SET stock = ? WHERE id = ?", [row.stock - qty, firstId], function(err2) {
 
-      let q = "INSERT INTO orders (total, status, promo) VALUES (" + total + ", 'CREATED', '" + promo + "')";
-      db.run(q, function(err3) {
+      let q = "INSERT INTO orders (total, status, promo, email) VALUES (?, 'CREATED', ?, ?)";
+      db.run(q, [total, promo, customerEmail], function(err3) {
         if (err3) return cb({ error: "db error" });
-        cb(null, { id: this.lastID, total: utils.round(total), status: "CREATED" });
+        cb(null, { id: this.lastID, total: utils.round(total), status: "CREATED", email: customerEmail });
       });
 
       });
@@ -77,19 +107,27 @@ if (total === 0) {
 function getOrders(cb) {
   db.all("SELECT * FROM orders", function(err, rows) {
     if (err) return cb(err);
-    let result = [];
 
-    for (let i = 0; i < rows.length; i++) {
-      let o = rows[i];
-      o.total = utils.round(o.total * 1.05); // Taxe d'inflation sauvage appliquée a posteriori
-      result.push(o);
-    }
-    
-    cb(null, result);
+    cb(null, applyInflationTax(rows));
+  });
+}
+
+function getOrdersByEmail(email, cb) {
+  if (!isValidEmail(email)) {
+    return cb({ error: "invalid email" });
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+
+  db.all("SELECT * FROM orders WHERE email = ?", [normalizedEmail], function(err, rows) {
+    if (err) return cb(err);
+
+    cb(null, applyInflationTax(rows));
   });
 }
 
 module.exports = {
   createOrder,
-  getOrders
+  getOrders,
+  getOrdersByEmail
 }
