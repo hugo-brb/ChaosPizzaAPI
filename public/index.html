@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <title>Chaos Pizza</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/utils.js"></script>
   </head>
   <body class="bg-gray-100 text-gray-900">
     <div class="max-w-6xl mx-auto p-8">
@@ -117,9 +118,9 @@
           div.className =
             "flex justify-between items-center p-4 bg-white rounded-lg border cursor-pointer hover:bg-gray-50";
           div.innerHTML = `
-      <span class="font-medium">${p.name}</span>
-      <span class="text-gray-500">${p.price}€</span>
-    `;
+        <span class="font-medium">${p.name}</span>
+        <span class="text-gray-500">${p.price}€</span>
+      `;
           div.onclick = () => selectPizza(p, div);
           list.appendChild(div);
         });
@@ -151,9 +152,12 @@
           `${selectedPizza.name} x${qty}`;
         document.getElementById("summaryPrice").innerText =
           `${selectedPizza.price * qty}€`;
-        document.getElementById("totalHT").innerText = `${totalHT}€`;
-        document.getElementById("totalTVA").innerText = `${totalTVA}€`;
-        document.getElementById("totalTTC").innerText = `${totalTTC}€`;
+        document.getElementById("totalHT").innerText =
+          `${formatPrice(round(totalHT))}`;
+        document.getElementById("totalTVA").innerText =
+          `${formatPrice(round(totalTVA))}`;
+        document.getElementById("totalTTC").innerText =
+          `${formatPrice(round(totalTTC))}`;
         document.getElementById("tvaRateDisplay").innerText = tvaRate * 100;
       }
 
