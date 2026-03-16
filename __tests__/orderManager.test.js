@@ -140,13 +140,13 @@ describe('createOrder — codes promo', () => {
         jest.runAllTimers();
     });
 
-    test('BUG DOCUMENTÉ — promoCode FREEPIZZA : total forcé à 10 par le fallback legacy', (done) => {
+    test('promoCode FREEPIZZA : total forcé à 0', (done) => {
         pizza.getPizzaPrice.mockReturnValue(10);
         setupDbSuccess();
 
         const cb = jest.fn((err, result) => {
-            // FREEPIZZA met total à 0, mais le fallback "if (total === 0) total = 10" l'écrase
-            expect(result.total).toBe(10);
+            // FREEPIZZA met total à 0
+            expect(result.total).toBe(0);
             done();
         });
 
