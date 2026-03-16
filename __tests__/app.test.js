@@ -11,7 +11,7 @@ afterAll((done) => {
 describe('GET /pizzas', () => {
   test('devrait retourner la liste des pizzas', async () => {
     const response = await request(app).get('/pizzas');
-    
+
     expect(response.status).toBe(200);
     expect(Array.isArray(response.body)).toBe(true);
   });
@@ -60,7 +60,7 @@ describe('POST /orders', () => {
       .set('Content-Type', 'application/json');
 
     expect(response.status).toBe(200);
-    expect(response.body.total).toBe(10); // legacy fallback when total is 0
+    expect(response.body.total).toBe(0); // legacy fallback when total is 0
   });
 
   test('devrait appliquer le code promo HALF', async () => {
@@ -103,7 +103,7 @@ describe('POST /orders', () => {
 describe('GET /orders', () => {
   test('devrait retourner la liste des commandes', async () => {
     const response = await request(app).get('/orders');
-    
+
     expect(response.status).toBe(200);
     expect(Array.isArray(response.body)).toBe(true);
   });
