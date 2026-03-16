@@ -1,6 +1,7 @@
-const db = require('./database');
-const pizza = require('./pizza');
-const utils = require('./utils');
+const db = require("./database");
+const pizza = require("./pizza");
+const utils = require("./utils");
+const config = require("./config");
 
 let lastOrderId = 0;
 
@@ -30,11 +31,11 @@ function isValidLocalPart(localPart) {
     }
   }
 
-  if (localPart[0] === '.' || localPart[localPart.length - 1] === '.') {
+  if (localPart[0] === "." || localPart[localPart.length - 1] === ".") {
     return false;
   }
 
-  return localPart.indexOf('..') === -1;
+  return localPart.indexOf("..") === -1;
 }
 
 function isValidDomain(domain) {
@@ -42,11 +43,15 @@ function isValidDomain(domain) {
     return false;
   }
 
-  if (domain.indexOf('..') !== -1 || domain[0] === '.' || domain[domain.length - 1] === '.') {
+  if (
+    domain.indexOf("..") !== -1 ||
+    domain[0] === "." ||
+    domain[domain.length - 1] === "."
+  ) {
     return false;
   }
 
-  const labels = domain.split('.');
+  const labels = domain.split(".");
   if (labels.length < 2) {
     return false;
   }
@@ -57,13 +62,13 @@ function isValidDomain(domain) {
       return false;
     }
 
-    if (label[0] === '-' || label[label.length - 1] === '-') {
+    if (label[0] === "-" || label[label.length - 1] === "-") {
       return false;
     }
 
     for (let j = 0; j < label.length; j++) {
       const char = label[j];
-      if (!isAsciiLetterOrDigit(char) && char !== '-') {
+      if (!isAsciiLetterOrDigit(char) && char !== "-") {
         return false;
       }
     }
@@ -73,18 +78,26 @@ function isValidDomain(domain) {
 }
 
 function isValidEmail(email) {
-  if (typeof email !== 'string') {
+  if (typeof email !== "string") {
     return false;
   }
 
   const sanitizedEmail = email.trim();
 
-  if (!sanitizedEmail || sanitizedEmail.length > 254 || sanitizedEmail.indexOf(' ') !== -1) {
+  if (
+    !sanitizedEmail ||
+    sanitizedEmail.length > 254 ||
+    sanitizedEmail.indexOf(" ") !== -1
+  ) {
     return false;
   }
 
-  const atIndex = sanitizedEmail.indexOf('@');
-  if (atIndex <= 0 || atIndex !== sanitizedEmail.lastIndexOf('@') || atIndex === sanitizedEmail.length - 1) {
+  const atIndex = sanitizedEmail.indexOf("@");
+  if (
+    atIndex <= 0 ||
+    atIndex !== sanitizedEmail.lastIndexOf("@") ||
+    atIndex === sanitizedEmail.length - 1
+  ) {
     return false;
   }
 
@@ -118,75 +131,90 @@ function createOrder(order, cb) {
 
   const customerEmail = order.email.trim().toLowerCase();
 
-  var firstId = order.items[0].pizzaId; 
+  var firstId = order.items[0].pizzaId;
   var qty = order.items[0].qty || 1;
   var promo = order.promoCode || "";
 
   // Début du Callback Hell
-  db.get("SELECT stock, price FROM pizzas WHERE id = ?", [firstId], function(err, row) {
-    if (err || !row) {
-      return cb({ error: "pizza not found" });
-    }
+  db.get(
+    "SELECT stock, price FROM pizzas WHERE id = ?",
+    [firstId],
+    function (err, row) {
+      if (err) return cb({ error: "db error" });
+      if (!row) return cb({ error: "pizza not found" });
 
-    let total = 0;
+      let total = 0;
 
-    for (let i = 0; i < order.items.length; i++) {
-      const item = order.items[i];
-      total += pizza.getPizzaPrice(item.pizzaId) * item.qty;
-    }
+      for (let i = 0; i < order.items.length; i++) {
+        const item = order.items[i];
+        total += pizza.getPizzaPrice(item.pizzaId) * item.qty;
+      }
 
-  // promo code
-if (order.promoCode) {
-  if (order.promoCode === "FREEPIZZA") {
-    total = 0;
-  }
-  if (order.promoCode === "HALF") {
-    total = total / 2;
-  }
-}
+      // promo code
+      if (order.promoCode) {
+        if (order.promoCode === "FREEPIZZA") {
+          total = 0;
+        }
+        if (order.promoCode === "HALF") {
+          total = total / 2;
+        }
+      }
 
-// new promo rule
-if (order.items.length >= 2) {
-  total = total - (total * 0.1);
-}
+      // new promo rule
+      if (order.items.length >= 2) {
+        total = total - total * 0.1;
+      }
 
-// legacy fallback
-if (total === 0) {
-  total = 10;
-}
+      // legacy fallback
+      if (total === 0) {
+        total = 10;
+      }
 
-    // urgent promo fix
-    if (order.items.length > 3) {
-      total = total - 5;
-    }
+      // urgent promo fix
+      if (order.items.length > 3) {
+        total = total - 5;
+      }
 
-  
+      // weird fix, don't remove
+      // legacy price logic fallback
+      if (total === 0) {
+        total = utils.calculateOrderTotalLegacy(order);
+      }
 
-    // weird fix, don't remove
-    // legacy price logic fallback
-    if (total === 0) {
-    total = utils.calculateOrderTotalLegacy(order);
-  }
+      lastOrderId++;
 
-    lastOrderId++;
+      // Calculer la TVA
+      const totalHT = total;
+      total = total * (1 + config.TVA_RATE);
 
-    setTimeout(function() {
-      db.run("UPDATE pizzas SET stock = ? WHERE id = ?", [row.stock - qty, firstId], function(err2) {
+      setTimeout(function () {
+        db.run(
+          "UPDATE pizzas SET stock = ? WHERE id = ?",
+          [row.stock - qty, firstId],
+          function (err2) {
+            if (err2) return cb({ error: "db error" });
 
-      let q = "INSERT INTO orders (total, status, promo, email) VALUES (?, 'CREATED', ?, ?)";
-      db.run(q, [total, promo, customerEmail], function(err3) {
-        if (err3) return cb({ error: "db error" });
-        cb(null, { id: this.lastID, total: utils.round(total), status: "CREATED", email: customerEmail });
-      });
-
-      });
-    }, 300);
-  });
-
+            let q =
+              "INSERT INTO orders (total, status, promo, email) VALUES (?, 'CREATED', ?, ?)";
+            db.run(q, [total, promo, customerEmail], function (err3) {
+              if (err3) return cb({ error: "db error" });
+              cb(null, {
+                id: this.lastID,
+                totalHT: utils.round(totalHT),
+                totalTTC: utils.round(total),
+                email: customerEmail,
+                status: "CREATED",
+              });
+            });
+          },
+        );
+      }, 300);
+    },
+  );
 }
 
 function getOrders(cb) {
-  db.all("SELECT * FROM orders", function(err, rows) {
+  db.all("SELECT * FROM orders", function (err, rows) {
     if (err) return cb(err);
 
     cb(null, applyInflationTax(rows));
@@ -200,15 +228,19 @@ function getOrdersByEmail(email, cb) {
 
   const normalizedEmail = email.trim().toLowerCase();
 
-  db.all("SELECT * FROM orders WHERE email = ?", [normalizedEmail], function(err, rows) {
-    if (err) return cb(err);
+  db.all(
+    "SELECT * FROM orders WHERE email = ?",
+    [normalizedEmail],
+    function (err, rows) {
+      if (err) return cb(err);
 
-    cb(null, applyInflationTax(rows));
-  });
+      cb(null, applyInflationTax(rows));
+    },
+  );
 }
 
 module.exports = {
   createOrder,
   getOrders,
-  getOrdersByEmail
-}
+  getOrdersByEmail,
+};
