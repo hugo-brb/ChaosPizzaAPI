@@ -5,11 +5,131 @@ const config = require("./config");
 
 let lastOrderId = 0;
 
+function isAsciiLetterOrDigit(char) {
+  const code = char.charCodeAt(0);
+  return (
+    (code >= 48 && code <= 57) ||
+    (code >= 65 && code <= 90) ||
+    (code >= 97 && code <= 122)
+  );
+}
+
+function isValidLocalPart(localPart) {
+  if (!localPart || localPart.length > 64) {
+    return false;
+  }
+
+  const allowedSpecials = ".!#$%&'*+/=?^_`{|}~-";
+  for (let i = 0; i < localPart.length; i++) {
+    const char = localPart[i];
+    if (isAsciiLetterOrDigit(char)) {
+      continue;
+    }
+
+    if (allowedSpecials.indexOf(char) === -1) {
+      return false;
+    }
+  }
+
+  if (localPart[0] === "." || localPart[localPart.length - 1] === ".") {
+    return false;
+  }
+
+  return localPart.indexOf("..") === -1;
+}
+
+function isValidDomain(domain) {
+  if (!domain || domain.length > 253) {
+    return false;
+  }
+
+  if (
+    domain.indexOf("..") !== -1 ||
+    domain[0] === "." ||
+    domain[domain.length - 1] === "."
+  ) {
+    return false;
+  }
+
+  const labels = domain.split(".");
+  if (labels.length < 2) {
+    return false;
+  }
+
+  for (let i = 0; i < labels.length; i++) {
+    const label = labels[i];
+    if (!label || label.length > 63) {
+      return false;
+    }
+
+    if (label[0] === "-" || label[label.length - 1] === "-") {
+      return false;
+    }
+
+    for (let j = 0; j < label.length; j++) {
+      const char = label[j];
+      if (!isAsciiLetterOrDigit(char) && char !== "-") {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+function isValidEmail(email) {
+  if (typeof email !== "string") {
+    return false;
+  }
+
+  const sanitizedEmail = email.trim();
+
+  if (
+    !sanitizedEmail ||
+    sanitizedEmail.length > 254 ||
+    sanitizedEmail.indexOf(" ") !== -1
+  ) {
+    return false;
+  }
+
+  const atIndex = sanitizedEmail.indexOf("@");
+  if (
+    atIndex <= 0 ||
+    atIndex !== sanitizedEmail.lastIndexOf("@") ||
+    atIndex === sanitizedEmail.length - 1
+  ) {
+    return false;
+  }
+
+  const localPart = sanitizedEmail.slice(0, atIndex);
+  const domain = sanitizedEmail.slice(atIndex + 1);
+
+  return isValidLocalPart(localPart) && isValidDomain(domain);
+}
+
+function applyInflationTax(ordersRows) {
+  const result = [];
+
+  for (let i = 0; i < ordersRows.length; i++) {
+    let order = ordersRows[i];
+    order.total = utils.round(order.total * 1.05); // Taxe d'inflation sauvage appliquée a posteriori
+    result.push(order);
+  }
+
+  return result;
+}
+
 function createOrder(order, cb) {
   // basic validation
   if (!order || !order.items) {
     return cb({ error: "invalid order" });
   }
+
+  if (!isValidEmail(order.email)) {
+    return cb({ error: "invalid email" });
+  }
+
+  const customerEmail = order.email.trim().toLowerCase();
 
   var firstId = order.items[0].pizzaId;
   var qty = order.items[0].qty || 1;
@@ -74,13 +194,15 @@ function createOrder(order, cb) {
           function (err2) {
             if (err2) return cb({ error: "db error" });
 
-            let q = "INSERT INTO orders (total, status, promo) VALUES (?, 'CREATED', ?)";
-            db.run(q, [total, promo], function (err3) {
+            let q =
+              "INSERT INTO orders (total, status, promo, email) VALUES (?, 'CREATED', ?, ?)";
+            db.run(q, [total, promo, customerEmail], function (err3) {
               if (err3) return cb({ error: "db error" });
               cb(null, {
                 id: this.lastID,
                 totalHT: utils.round(totalHT),
                 totalTTC: utils.round(total),
+                email: customerEmail,
                 status: "CREATED",
               });
             });
@@ -94,19 +216,31 @@ function createOrder(order, cb) {
 function getOrders(cb) {
   db.all("SELECT * FROM orders", function (err, rows) {
     if (err) return cb(err);
-    let result = [];
 
-    for (let i = 0; i < rows.length; i++) {
-      let o = rows[i];
-      o.total = utils.round(o.total * (1 + config.INFLATION_RATE)); // Taxe d'inflation sauvage appliquée a posteriori
-      result.push(o);
-    }
-
-    cb(null, result);
+    cb(null, applyInflationTax(rows));
   });
+}
+
+function getOrdersByEmail(email, cb) {
+  if (!isValidEmail(email)) {
+    return cb({ error: "invalid email" });
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+
+  db.all(
+    "SELECT * FROM orders WHERE email = ?",
+    [normalizedEmail],
+    function (err, rows) {
+      if (err) return cb(err);
+
+      cb(null, applyInflationTax(rows));
+    },
+  );
 }
 
 module.exports = {
   createOrder,
   getOrders,
+  getOrdersByEmail,
 };

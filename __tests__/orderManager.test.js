@@ -13,18 +13,27 @@ jest.mock("../pizza", () => ({
 
 const db = require("../database");
 const pizza = require("../pizza");
-const { createOrder, getOrders } = require("../orderManager");
+const { createOrder, getOrders, getOrdersByEmail } = require("../orderManager");
+
+function getCallbackFromArgs(args) {
+  return args[args.length - 1];
+}
 
 // Helper : simule un db.get + db.run réussis
 function setupDbSuccess(stock = 50) {
-  db.get.mockImplementation((query, params, cb) => {
-    const callback = typeof params === "function" ? params : cb;
-    callback(null, { stock, price: 10.0 });
+  db.get.mockImplementation((...args) => {
+    const cb = getCallbackFromArgs(args);
+    cb(null, { stock, price: 10.0 });
   });
-  db.run.mockImplementation(function (query, params, cb) {
-    const callback = typeof params === "function" ? params : cb;
-    callback.call({ lastID: 99 }, null);
-  });
+  db.run
+    .mockImplementationOnce((...args) => {
+      const cb = getCallbackFromArgs(args);
+      cb.call({}, null);
+    }) // UPDATE stock
+    .mockImplementationOnce((...args) => {
+      const cb = getCallbackFromArgs(args);
+      cb.call({ lastID: 99 }, null);
+    }); // INSERT order
 }
 
 beforeEach(() => {
@@ -57,6 +66,80 @@ describe("createOrder — validation", () => {
     createOrder({ promoCode: "HALF" }, cb);
     expect(cb).toHaveBeenCalledWith({ error: "invalid order" });
   });
+
+  test("appelle cb avec une erreur si email est absent", () => {
+    const cb = jest.fn();
+    createOrder({ items: [{ pizzaId: 1, qty: 1 }] }, cb);
+    expect(cb).toHaveBeenCalledWith({ error: "invalid email" });
+  });
+
+  test("appelle cb avec une erreur si email est invalide", () => {
+    const cb = jest.fn();
+    createOrder({ email: "not-an-email", items: [{ pizzaId: 1, qty: 1 }] }, cb);
+    expect(cb).toHaveBeenCalledWith({ error: "invalid email" });
+  });
+
+  test("rejette un email avec local-part vide", () => {
+    const cb = jest.fn();
+    createOrder({ email: "@example.com", items: [{ pizzaId: 1, qty: 1 }] }, cb);
+    expect(cb).toHaveBeenCalledWith({ error: "invalid email" });
+  });
+
+  test("rejette un email avec points consécutifs dans la local-part", () => {
+    const cb = jest.fn();
+    createOrder(
+      { email: "a..b@example.com", items: [{ pizzaId: 1, qty: 1 }] },
+      cb,
+    );
+    expect(cb).toHaveBeenCalledWith({ error: "invalid email" });
+  });
+
+  test("rejette un email avec local-part commençant ou finissant par un point", () => {
+    const cbStart = jest.fn();
+    const cbEnd = jest.fn();
+
+    createOrder(
+      { email: ".abc@example.com", items: [{ pizzaId: 1, qty: 1 }] },
+      cbStart,
+    );
+    createOrder(
+      { email: "abc.@example.com", items: [{ pizzaId: 1, qty: 1 }] },
+      cbEnd,
+    );
+
+    expect(cbStart).toHaveBeenCalledWith({ error: "invalid email" });
+    expect(cbEnd).toHaveBeenCalledWith({ error: "invalid email" });
+  });
+
+  test("rejette un email avec domaine sans point", () => {
+    const cb = jest.fn();
+    createOrder({ email: "abc@example", items: [{ pizzaId: 1, qty: 1 }] }, cb);
+    expect(cb).toHaveBeenCalledWith({ error: "invalid email" });
+  });
+
+  test("rejette un email avec label de domaine invalide", () => {
+    const cbHyphen = jest.fn();
+    const cbChar = jest.fn();
+
+    createOrder(
+      { email: "abc@-example.com", items: [{ pizzaId: 1, qty: 1 }] },
+      cbHyphen,
+    );
+    createOrder(
+      { email: "abc@exa%mple.com", items: [{ pizzaId: 1, qty: 1 }] },
+      cbChar,
+    );
+
+    expect(cbHyphen).toHaveBeenCalledWith({ error: "invalid email" });
+    expect(cbChar).toHaveBeenCalledWith({ error: "invalid email" });
+  });
+
+  test("rejette un email avec une local-part > 64 caractères", () => {
+    const cb = jest.fn();
+    const longLocalPart = `${"a".repeat(65)}@example.com`;
+    createOrder({ email: longLocalPart, items: [{ pizzaId: 1, qty: 1 }] }, cb);
+    expect(cb).toHaveBeenCalledWith({ error: "invalid email" });
+  });
 });
 
 // ─────────────────────────────────────────────
@@ -74,7 +157,10 @@ describe("createOrder — calcul du total", () => {
       done();
     });
 
-    createOrder({ items: [{ pizzaId: 1, qty: 1 }] }, cb);
+    createOrder(
+      { email: "client@example.com", items: [{ pizzaId: 1, qty: 1 }] },
+      cb,
+    );
     jest.runAllTimers();
   });
 
@@ -87,7 +173,10 @@ describe("createOrder — calcul du total", () => {
       done();
     });
 
-    createOrder({ items: [{ pizzaId: 1, qty: 2 }] }, cb);
+    createOrder(
+      { email: "client@example.com", items: [{ pizzaId: 1, qty: 2 }] },
+      cb,
+    );
     jest.runAllTimers();
   });
 
@@ -103,6 +192,7 @@ describe("createOrder — calcul du total", () => {
 
     createOrder(
       {
+        email: "client@example.com",
         items: [
           { pizzaId: 1, qty: 1 },
           { pizzaId: 2, qty: 1 },
@@ -125,6 +215,7 @@ describe("createOrder — calcul du total", () => {
 
     createOrder(
       {
+        email: "client@example.com",
         items: [
           { pizzaId: 1, qty: 1 },
           { pizzaId: 1, qty: 1 },
@@ -152,7 +243,14 @@ describe("createOrder — codes promo", () => {
       done();
     });
 
-    createOrder({ items: [{ pizzaId: 1, qty: 1 }], promoCode: "HALF" }, cb);
+    createOrder(
+      {
+        email: "client@example.com",
+        items: [{ pizzaId: 1, qty: 1 }],
+        promoCode: "HALF",
+      },
+      cb,
+    );
     jest.runAllTimers();
   });
 
@@ -167,7 +265,11 @@ describe("createOrder — codes promo", () => {
     });
 
     createOrder(
-      { items: [{ pizzaId: 1, qty: 1 }], promoCode: "FREEPIZZA" },
+      {
+        email: "client@example.com",
+        items: [{ pizzaId: 1, qty: 1 }],
+        promoCode: "FREEPIZZA",
+      },
       cb,
     );
     jest.runAllTimers();
@@ -182,7 +284,14 @@ describe("createOrder — codes promo", () => {
       done();
     });
 
-    createOrder({ items: [{ pizzaId: 1, qty: 1 }], promoCode: "INVALID" }, cb);
+    createOrder(
+      {
+        email: "client@example.com",
+        items: [{ pizzaId: 1, qty: 1 }],
+        promoCode: "INVALID",
+      },
+      cb,
+    );
     jest.runAllTimers();
   });
 });
@@ -191,20 +300,35 @@ describe("createOrder — codes promo", () => {
 // createOrder — Gestion des erreurs DB
 // ─────────────────────────────────────────────
 describe("createOrder — erreurs base de données", () => {
+  test("retourne pizza not found si la pizza est introuvable", () => {
+    const cb = jest.fn();
+    db.get.mockImplementation((...args) => {
+      const callback = getCallbackFromArgs(args);
+      callback(null, null);
+    });
+
+    createOrder(
+      { email: "client@example.com", items: [{ pizzaId: 9999, qty: 1 }] },
+      cb,
+    );
+
+    expect(cb).toHaveBeenCalledWith({ error: "pizza not found" });
+  });
+
   test('erreur lors du INSERT → cb appelé avec { error: "db error" }', (done) => {
     pizza.getPizzaPrice.mockReturnValue(10);
-    db.get.mockImplementation((q, p, cb) => {
-      const callback = typeof p === "function" ? p : cb;
-      callback(null, { stock: 50, price: 10 });
+    db.get.mockImplementation((...args) => {
+      const cb = getCallbackFromArgs(args);
+      cb(null, { stock: 50, price: 10 });
     });
     db.run
-      .mockImplementationOnce((q, p, cb) => {
-        const callback = typeof p === "function" ? p : cb;
-        callback.call({}, null);
+      .mockImplementationOnce((...args) => {
+        const cb = getCallbackFromArgs(args);
+        cb.call({}, null);
       }) // UPDATE ok
-      .mockImplementationOnce(function (q, p, cb) {
-        const callback = typeof p === "function" ? p : cb;
-        callback.call({}, new Error("INSERT failed"));
+      .mockImplementationOnce((...args) => {
+        const cb = getCallbackFromArgs(args);
+        cb.call({}, new Error("INSERT failed"));
       }); // INSERT KO
 
     const cb = jest.fn((err) => {
@@ -212,7 +336,10 @@ describe("createOrder — erreurs base de données", () => {
       done();
     });
 
-    createOrder({ items: [{ pizzaId: 1, qty: 1 }] }, cb);
+    createOrder(
+      { email: "client@example.com", items: [{ pizzaId: 1, qty: 1 }] },
+      cb,
+    );
     jest.runAllTimers();
   });
 });
@@ -223,18 +350,18 @@ describe("createOrder — erreurs base de données", () => {
 describe("createOrder — structure du résultat", () => {
   test("résultat contient id, total et status CREATED", (done) => {
     pizza.getPizzaPrice.mockReturnValue(10);
-    db.get.mockImplementation((q, p, cb) => {
-      const callback = typeof p === "function" ? p : cb;
-      callback(null, { stock: 50, price: 10 });
+    db.get.mockImplementation((...args) => {
+      const cb = getCallbackFromArgs(args);
+      cb(null, { stock: 50, price: 10 });
     });
     db.run
-      .mockImplementationOnce((q, p, cb) => {
-        const callback = typeof p === "function" ? p : cb;
-        callback.call({}, null);
+      .mockImplementationOnce((...args) => {
+        const cb = getCallbackFromArgs(args);
+        cb.call({}, null);
       })
-      .mockImplementationOnce(function (q, p, cb) {
-        const callback = typeof p === "function" ? p : cb;
-        callback.call({ lastID: 7 }, null);
+      .mockImplementationOnce((...args) => {
+        const cb = getCallbackFromArgs(args);
+        cb.call({ lastID: 7 }, null);
       });
 
     const cb = jest.fn((err, result) => {
@@ -243,10 +370,14 @@ describe("createOrder — structure du résultat", () => {
       expect(result).toHaveProperty("totalHT");
       expect(result).toHaveProperty("totalTTC");
       expect(result).toHaveProperty("status", "CREATED");
+      expect(result).toHaveProperty("email", "client@example.com");
       done();
     });
 
-    createOrder({ items: [{ pizzaId: 1, qty: 1 }] }, cb);
+    createOrder(
+      { email: "client@example.com", items: [{ pizzaId: 1, qty: 1 }] },
+      cb,
+    );
     jest.runAllTimers();
   });
 });
@@ -296,6 +427,92 @@ describe("getOrders", () => {
 
     getOrders((err, result) => {
       expect(result[0].total).toBe(21);
+      done();
+    });
+  });
+});
+
+// ─────────────────────────────────────────────
+// getOrdersByEmail
+// ─────────────────────────────────────────────
+describe("getOrdersByEmail", () => {
+  test("retourne les commandes d'un email avec taxe inflation de 5%", (done) => {
+    db.all.mockImplementation((query, params, cb) =>
+      cb(null, [
+        {
+          id: 1,
+          total: 10.0,
+          status: "CREATED",
+          promo: "",
+          email: "client@example.com",
+        },
+      ]),
+    );
+
+    getOrdersByEmail("client@example.com", (err, result) => {
+      expect(err).toBeNull();
+      expect(result).toHaveLength(1);
+      expect(result[0].email).toBe("client@example.com");
+      expect(result[0].total).toBe(10.5);
+      done();
+    });
+  });
+
+  test("retourne une erreur si email invalide", () => {
+    const cb = jest.fn();
+    getOrdersByEmail("not-an-email", cb);
+    expect(cb).toHaveBeenCalledWith({ error: "invalid email" });
+  });
+
+  test("propage l'erreur DB au callback", (done) => {
+    const fakeError = new Error("DB read failed");
+    db.all.mockImplementation((query, params, cb) => cb(fakeError, null));
+
+    getOrdersByEmail("client@example.com", (err) => {
+      expect(err).toBe(fakeError);
+      done();
+    });
+  });
+});
+
+// ─────────────────────────────────────────────
+// getOrdersByEmail
+// ─────────────────────────────────────────────
+describe("getOrdersByEmail", () => {
+  test("retourne les commandes d'un email avec taxe inflation de 5%", (done) => {
+    db.all.mockImplementation((query, params, cb) =>
+      cb(null, [
+        {
+          id: 1,
+          total: 10.0,
+          status: "CREATED",
+          promo: "",
+          email: "client@example.com",
+        },
+      ]),
+    );
+
+    getOrdersByEmail("client@example.com", (err, result) => {
+      expect(err).toBeNull();
+      expect(result).toHaveLength(1);
+      expect(result[0].email).toBe("client@example.com");
+      expect(result[0].total).toBe(10.5);
+      done();
+    });
+  });
+
+  test("retourne une erreur si email invalide", () => {
+    const cb = jest.fn();
+    getOrdersByEmail("not-an-email", cb);
+    expect(cb).toHaveBeenCalledWith({ error: "invalid email" });
+  });
+
+  test("propage l'erreur DB au callback", (done) => {
+    const fakeError = new Error("DB read failed");
+    db.all.mockImplementation((query, params, cb) => cb(fakeError, null));
+
+    getOrdersByEmail("client@example.com", (err) => {
+      expect(err).toBe(fakeError);
       done();
     });
   });
