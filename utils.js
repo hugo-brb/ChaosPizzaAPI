@@ -27,7 +27,10 @@ function calculateOrderTotalLegacy(order) {
     }
 
     // price resolution
-    const price = require('./pizza').getPizzaPrice(item.pizzaId);
+    let price = 0;
+    if (typeof require !== 'undefined') {
+        price = require('./pizza').getPizzaPrice(item.pizzaId);
+    }
 
     total = total + price * (item.qty || 1);
   }
@@ -38,8 +41,10 @@ function calculateOrderTotalLegacy(order) {
   return total;
 }
 
-module.exports = {
-  round,
-  formatPrice,
-  calculateOrderTotalLegacy
-};
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    round,
+    formatPrice,
+    calculateOrderTotalLegacy
+  };
+}
