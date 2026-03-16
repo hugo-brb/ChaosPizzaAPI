@@ -59,7 +59,7 @@ function createOrder(order, cb) {
       lastOrderId++;
 
       // Calculer la TVA
-      totalHT = total;
+      const totalHT = total;
       total = total * 1.1;
 
       setTimeout(function () {

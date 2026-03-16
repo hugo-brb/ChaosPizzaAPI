@@ -1,6 +1,6 @@
-const request = require('supertest');
-const app = require('../app');
-const db = require('../database');
+const request = require("supertest");
+const app = require("../app");
+const db = require("../database");
 
 afterAll((done) => {
   db.close((err) => {
@@ -8,102 +8,100 @@ afterAll((done) => {
   });
 });
 
-describe('GET /pizzas', () => {
-  test('devrait retourner la liste des pizzas', async () => {
-    const response = await request(app).get('/pizzas');
-    
+describe("GET /pizzas", () => {
+  test("devrait retourner la liste des pizzas", async () => {
+    const response = await request(app).get("/pizzas");
+
     expect(response.status).toBe(200);
     expect(Array.isArray(response.body)).toBe(true);
   });
 });
 
-describe('POST /orders', () => {
-  test('devrait créer une commande valide', async () => {
+describe("POST /orders", () => {
+  test("devrait créer une commande valide", async () => {
     const order = {
-      items: [
-        { pizzaId: 1, qty: 2 }
-      ]
+      items: [{ pizzaId: 1, qty: 2 }],
     };
 
     const response = await request(app)
-      .post('/orders')
+      .post("/orders")
       .send(order)
-      .set('Content-Type', 'application/json');
+      .set("Content-Type", "application/json");
 
     expect(response.status).toBe(200);
-    expect(response.body).toHaveProperty('id');
-    expect(response.body).toHaveProperty('total');
-    expect(response.body).toHaveProperty('status');
-    expect(response.body.status).toBe('CREATED');
+    expect(response.body).toHaveProperty("id");
+    expect(response.body).toHaveProperty("totalHT");
+    expect(response.body).toHaveProperty("totalTTC");
+    expect(response.body).toHaveProperty("status");
+    expect(response.body.status).toBe("CREATED");
   });
 
-  test('devrait rejeter une commande sans items', async () => {
+  test("devrait rejeter une commande sans items", async () => {
     const response = await request(app)
-      .post('/orders')
+      .post("/orders")
       .send({})
-      .set('Content-Type', 'application/json');
+      .set("Content-Type", "application/json");
 
     expect(response.status).toBe(400);
   });
 
-  test('devrait appliquer le code promo FREEPIZZA', async () => {
+  test("devrait appliquer le code promo FREEPIZZA", async () => {
     const order = {
-      items: [
-        { pizzaId: 1, qty: 1 }
-      ],
-      promoCode: 'FREEPIZZA'
+      items: [{ pizzaId: 1, qty: 1 }],
+      promoCode: "FREEPIZZA",
     };
 
     const response = await request(app)
-      .post('/orders')
+      .post("/orders")
       .send(order)
-      .set('Content-Type', 'application/json');
+      .set("Content-Type", "application/json");
 
     expect(response.status).toBe(200);
-    expect(response.body.total).toBe(10); // legacy fallback when total is 0
+    expect(response.body.totalHT).toBe(10); // legacy fallback when total is 0
+    expect(response.body.totalTTC).toBe(10 * 1.1);
   });
 
-  test('devrait appliquer le code promo HALF', async () => {
+  test("devrait appliquer le code promo HALF", async () => {
     const order = {
-      items: [
-        { pizzaId: 1, qty: 2 }
-      ],
-      promoCode: 'HALF'
+      items: [{ pizzaId: 1, qty: 2 }],
+      promoCode: "HALF",
     };
 
     const response = await request(app)
-      .post('/orders')
+      .post("/orders")
       .send(order)
-      .set('Content-Type', 'application/json');
+      .set("Content-Type", "application/json");
 
     expect(response.status).toBe(200);
-    expect(response.body).toHaveProperty('total');
+    expect(response.body).toHaveProperty("totalHT");
+    expect(response.body).toHaveProperty("totalTTC");
     // Le total devrait être divisé par 2, mais difficile à tester sans connaître le prix exact
   });
 
-  test('devrait appliquer la réduction multi-items', async () => {
+  test("devrait appliquer la réduction multi-items", async () => {
     const order = {
       items: [
         { pizzaId: 1, qty: 1 },
-        { pizzaId: 2, qty: 1 }
-      ]
+        { pizzaId: 2, qty: 1 },
+      ],
     };
 
     const response = await request(app)
-      .post('/orders')
+      .post("/orders")
       .send(order)
-      .set('Content-Type', 'application/json');
+      .set("Content-Type", "application/json");
 
     expect(response.status).toBe(200);
-    expect(response.body).toHaveProperty('total');
+    expect(response.body).toHaveProperty("totalHT");
+    expect(response.body).toHaveProperty("totalTTC");
     // Réduction de 10% appliquée
   });
 });
 
-describe('GET /orders', () => {
-  test('devrait retourner la liste des commandes', async () => {
-    const response = await request(app).get('/orders');
-    
+describe("GET /orders", () => {
+  test("devrait retourner la liste des commandes", async () => {
+    const response = await request(app).get("/orders");
+
     expect(response.status).toBe(200);
     expect(Array.isArray(response.body)).toBe(true);
   });
