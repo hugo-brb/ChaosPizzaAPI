@@ -17,12 +17,14 @@ const { createOrder, getOrders } = require("../orderManager");
 
 // Helper : simule un db.get + db.run réussis
 function setupDbSuccess(stock = 50) {
-  db.get.mockImplementation((query, cb) => cb(null, { stock, price: 10.0 }));
-  db.run
-    .mockImplementationOnce((query, cb) => cb.call({}, null)) // UPDATE stock
-    .mockImplementationOnce(function (query, cb) {
-      cb.call({ lastID: 99 }, null);
-    }); // INSERT order
+  db.get.mockImplementation((query, params, cb) => {
+    const callback = typeof params === "function" ? params : cb;
+    callback(null, { stock, price: 10.0 });
+  });
+  db.run.mockImplementation(function (query, params, cb) {
+    const callback = typeof params === "function" ? params : cb;
+    callback.call({ lastID: 99 }, null);
+  });
 }
 
 beforeEach(() => {
@@ -191,11 +193,18 @@ describe("createOrder — codes promo", () => {
 describe("createOrder — erreurs base de données", () => {
   test('erreur lors du INSERT → cb appelé avec { error: "db error" }', (done) => {
     pizza.getPizzaPrice.mockReturnValue(10);
-    db.get.mockImplementation((q, cb) => cb(null, { stock: 50, price: 10 }));
+    db.get.mockImplementation((q, p, cb) => {
+      const callback = typeof p === "function" ? p : cb;
+      callback(null, { stock: 50, price: 10 });
+    });
     db.run
-      .mockImplementationOnce((q, cb) => cb.call({}, null)) // UPDATE ok
-      .mockImplementationOnce(function (q, cb) {
-        cb.call({}, new Error("INSERT failed"));
+      .mockImplementationOnce((q, p, cb) => {
+        const callback = typeof p === "function" ? p : cb;
+        callback.call({}, null);
+      }) // UPDATE ok
+      .mockImplementationOnce(function (q, p, cb) {
+        const callback = typeof p === "function" ? p : cb;
+        callback.call({}, new Error("INSERT failed"));
       }); // INSERT KO
 
     const cb = jest.fn((err) => {
@@ -214,11 +223,18 @@ describe("createOrder — erreurs base de données", () => {
 describe("createOrder — structure du résultat", () => {
   test("résultat contient id, total et status CREATED", (done) => {
     pizza.getPizzaPrice.mockReturnValue(10);
-    db.get.mockImplementation((q, cb) => cb(null, { stock: 50, price: 10 }));
+    db.get.mockImplementation((q, p, cb) => {
+      const callback = typeof p === "function" ? p : cb;
+      callback(null, { stock: 50, price: 10 });
+    });
     db.run
-      .mockImplementationOnce((q, cb) => cb.call({}, null))
-      .mockImplementationOnce(function (q, cb) {
-        cb.call({ lastID: 7 }, null);
+      .mockImplementationOnce((q, p, cb) => {
+        const callback = typeof p === "function" ? p : cb;
+        callback.call({}, null);
+      })
+      .mockImplementationOnce(function (q, p, cb) {
+        const callback = typeof p === "function" ? p : cb;
+        callback.call({ lastID: 7 }, null);
       });
 
     const cb = jest.fn((err, result) => {

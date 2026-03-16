@@ -1,6 +1,7 @@
 const db = require("./database");
 const pizza = require("./pizza");
 const utils = require("./utils");
+const config = require("./config");
 
 let lastOrderId = 0;
 
@@ -16,8 +17,12 @@ function createOrder(order, cb) {
 
   // Début du Callback Hell
   db.get(
-    "SELECT stock, price FROM pizzas WHERE id = " + firstId,
+    "SELECT stock, price FROM pizzas WHERE id = ?",
+    [firstId],
     function (err, row) {
+      if (err) return cb({ error: "db error" });
+      if (!row) return cb({ error: "pizza not found" });
+
       let total = 0;
 
       for (let i = 0; i < order.items.length; i++) {
@@ -60,22 +65,17 @@ function createOrder(order, cb) {
 
       // Calculer la TVA
       const totalHT = total;
-      total = total * 1.1;
+      total = total * (1 + config.TVA_RATE);
 
       setTimeout(function () {
         db.run(
-          "UPDATE pizzas SET stock = " +
-            (row.stock - qty) +
-            " WHERE id = " +
-            firstId,
+          "UPDATE pizzas SET stock = ? WHERE id = ?",
+          [row.stock - qty, firstId],
           function (err2) {
-            let q =
-              "INSERT INTO orders (total, status, promo) VALUES (" +
-              total +
-              ", 'CREATED', '" +
-              promo +
-              "')";
-            db.run(q, function (err3) {
+            if (err2) return cb({ error: "db error" });
+
+            let q = "INSERT INTO orders (total, status, promo) VALUES (?, 'CREATED', ?)";
+            db.run(q, [total, promo], function (err3) {
               if (err3) return cb({ error: "db error" });
               cb(null, {
                 id: this.lastID,
@@ -98,7 +98,7 @@ function getOrders(cb) {
 
     for (let i = 0; i < rows.length; i++) {
       let o = rows[i];
-      o.total = utils.round(o.total * 1.05); // Taxe d'inflation sauvage appliquée a posteriori
+      o.total = utils.round(o.total * (1 + config.INFLATION_RATE)); // Taxe d'inflation sauvage appliquée a posteriori
       result.push(o);
     }
 

@@ -63,7 +63,7 @@
               </div>
 
               <div class="flex justify-between italic">
-                <span>Total TVA (10%)</span>
+                <span>Total TVA (<span id="tvaRateDisplay">—</span>%)</span>
                 <span id="totalTVA">—</span>
               </div>
             </div>
@@ -92,6 +92,14 @@
     <script>
       let pizzas = [];
       let selectedPizza = null;
+      let config = null;
+
+      fetch("/config")
+        .then((r) => r.json())
+        .then((data) => {
+          config = data;
+          updateSummary();
+        });
 
       fetch("/pizzas")
         .then((r) => r.json())
@@ -136,7 +144,8 @@
         if (!selectedPizza) return;
         const qty = Number(document.getElementById("qty").value);
         const totalHT = selectedPizza.price * qty;
-        const totalTVA = totalHT * 0.1;
+        const tvaRate = config ? config.TVA_RATE : 0.1;
+        const totalTVA = totalHT * tvaRate;
         const totalTTC = totalHT + totalTVA;
         document.getElementById("summaryName").innerText =
           `${selectedPizza.name} x${qty}`;
@@ -145,6 +154,7 @@
         document.getElementById("totalHT").innerText = `${totalHT}€`;
         document.getElementById("totalTVA").innerText = `${totalTVA}€`;
         document.getElementById("totalTTC").innerText = `${totalTTC}€`;
+        document.getElementById("tvaRateDisplay").innerText = tvaRate * 100;
       }
 
       function placeOrder() {

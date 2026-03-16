@@ -23,4 +23,8 @@ router.get('/orders', (req, res) => {
   });
 });
 
+router.get('/config', (req, res) => {
+  res.json(require('./config'));
+});
+
 module.exports = router;
