@@ -4,13 +4,94 @@ const utils = require('./utils');
 
 let lastOrderId = 0;
 
+function isAsciiLetterOrDigit(char) {
+  const code = char.charCodeAt(0);
+  return (
+    (code >= 48 && code <= 57) ||
+    (code >= 65 && code <= 90) ||
+    (code >= 97 && code <= 122)
+  );
+}
+
+function isValidLocalPart(localPart) {
+  if (!localPart || localPart.length > 64) {
+    return false;
+  }
+
+  const allowedSpecials = ".!#$%&'*+/=?^_`{|}~-";
+  for (let i = 0; i < localPart.length; i++) {
+    const char = localPart[i];
+    if (isAsciiLetterOrDigit(char)) {
+      continue;
+    }
+
+    if (allowedSpecials.indexOf(char) === -1) {
+      return false;
+    }
+  }
+
+  if (localPart[0] === '.' || localPart[localPart.length - 1] === '.') {
+    return false;
+  }
+
+  return localPart.indexOf('..') === -1;
+}
+
+function isValidDomain(domain) {
+  if (!domain || domain.length > 253) {
+    return false;
+  }
+
+  if (domain.indexOf('..') !== -1 || domain[0] === '.' || domain[domain.length - 1] === '.') {
+    return false;
+  }
+
+  const labels = domain.split('.');
+  if (labels.length < 2) {
+    return false;
+  }
+
+  for (let i = 0; i < labels.length; i++) {
+    const label = labels[i];
+    if (!label || label.length > 63) {
+      return false;
+    }
+
+    if (label[0] === '-' || label[label.length - 1] === '-') {
+      return false;
+    }
+
+    for (let j = 0; j < label.length; j++) {
+      const char = label[j];
+      if (!isAsciiLetterOrDigit(char) && char !== '-') {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
 function isValidEmail(email) {
   if (typeof email !== 'string') {
     return false;
   }
 
   const sanitizedEmail = email.trim();
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sanitizedEmail);
+
+  if (!sanitizedEmail || sanitizedEmail.length > 254 || sanitizedEmail.indexOf(' ') !== -1) {
+    return false;
+  }
+
+  const atIndex = sanitizedEmail.indexOf('@');
+  if (atIndex <= 0 || atIndex !== sanitizedEmail.lastIndexOf('@') || atIndex === sanitizedEmail.length - 1) {
+    return false;
+  }
+
+  const localPart = sanitizedEmail.slice(0, atIndex);
+  const domain = sanitizedEmail.slice(atIndex + 1);
+
+  return isValidLocalPart(localPart) && isValidDomain(domain);
 }
 
 function applyInflationTax(ordersRows) {
