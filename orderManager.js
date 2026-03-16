@@ -112,7 +112,7 @@ function applyInflationTax(ordersRows) {
 
   for (let i = 0; i < ordersRows.length; i++) {
     let order = ordersRows[i];
-    order.total = utils.round(order.total * 1.05); // Taxe d'inflation sauvage appliquée a posteriori
+    order.total = utils.round(order.total);
     result.push(order);
   }
 
