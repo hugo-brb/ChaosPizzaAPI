@@ -99,7 +99,7 @@ function applyInflationTax(ordersRows) {
 
   for (let i = 0; i < ordersRows.length; i++) {
     let order = ordersRows[i];
-    order.total = utils.round(order.total);git 
+    order.total = utils.round(order.total);
     result.push(order);
   }
 

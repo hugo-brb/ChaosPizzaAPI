@@ -370,7 +370,7 @@ describe('getOrders', () => {
 // getOrdersByEmail
 // ─────────────────────────────────────────────
 describe('getOrdersByEmail', () => {
-    test('retourne les commandes d\'un email avec taxe inflation de 5%', (done) => {
+    test("retourne les commandes d'un email sans modification du prix", (done) => {
         db.all.mockImplementation((query, params, cb) =>
             cb(null, [{ id: 1, total: 10.0, status: 'CREATED', promo: '', email: 'client@example.com' }])
         );
@@ -379,7 +379,7 @@ describe('getOrdersByEmail', () => {
             expect(err).toBeNull();
             expect(result).toHaveLength(1);
             expect(result[0].email).toBe('client@example.com');
-            expect(result[0].total).toBe(10.5);
+            expect(result[0].total).toBe(10.0);
             done();
         });
     });
