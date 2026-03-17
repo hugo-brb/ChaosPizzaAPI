@@ -38,7 +38,7 @@ function setupDbSuccess(stock = 50) {
 
 beforeEach(() => {
   jest.useFakeTimers();
-  jest.clearAllMocks();
+  jest.resetAllMocks();
 });
 
 afterEach(() => {
@@ -302,11 +302,18 @@ describe("createOrder — codes promo", () => {
 
     const cb = jest.fn((err, result) => {
       expect(err).toBeNull();
-      expect(result.total).toBe(10);
+      expect(result.totalHT).toBe(10);
       done();
     });
 
-    createOrder({ items: [{ pizzaId: 1, qty: 2 }], promoCode: "BOGO" }, cb);
+    createOrder(
+      {
+        email: "test@example.com",
+        items: [{ pizzaId: 1, qty: 2 }],
+        promoCode: "BOGO",
+      },
+      cb,
+    );
     jest.runAllTimers();
   });
 
@@ -317,11 +324,18 @@ describe("createOrder — codes promo", () => {
 
     const cb = jest.fn((err, result) => {
       expect(err).toBeNull();
-      expect(result.total).toBe(20);
+      expect(result.totalHT).toBe(20);
       done();
     });
 
-    createOrder({ items: [{ pizzaId: 1, qty: 3 }], promoCode: "BOGO" }, cb);
+    createOrder(
+      {
+        email: "test@example.com",
+        items: [{ pizzaId: 1, qty: 3 }],
+        promoCode: "BOGO",
+      },
+      cb,
+    );
     jest.runAllTimers();
   });
 
@@ -332,11 +346,18 @@ describe("createOrder — codes promo", () => {
 
     const cb = jest.fn((err, result) => {
       expect(err).toBeNull();
-      expect(result.total).toBe(20);
+      expect(result.totalHT).toBe(20);
       done();
     });
 
-    createOrder({ items: [{ pizzaId: 1, qty: 4 }], promoCode: "BOGO" }, cb);
+    createOrder(
+      {
+        email: "test@example.com",
+        items: [{ pizzaId: 1, qty: 4 }],
+        promoCode: "BOGO",
+      },
+      cb,
+    );
     jest.runAllTimers();
   });
 
@@ -347,11 +368,18 @@ describe("createOrder — codes promo", () => {
 
     const cb = jest.fn((err, result) => {
       expect(err).toBeNull();
-      expect(result.total).toBe(10);
+      expect(result.totalHT).toBe(10);
       done();
     });
 
-    createOrder({ items: [{ pizzaId: 1, qty: 1 }], promoCode: "BOGO" }, cb);
+    createOrder(
+      {
+        email: "test@example.com",
+        items: [{ pizzaId: 1, qty: 1 }],
+        promoCode: "BOGO",
+      },
+      cb,
+    );
     jest.runAllTimers();
   });
 
@@ -365,12 +393,13 @@ describe("createOrder — codes promo", () => {
 
     const cb = jest.fn((err, result) => {
       expect(err).toBeNull();
-      expect(result.total).toBe(19.8);
+      expect(result.totalHT).toBe(19.8);
       done();
     });
 
     createOrder(
       {
+        email: "test@example.com",
         items: [
           { pizzaId: 1, qty: 2 },
           { pizzaId: 2, qty: 2 },
