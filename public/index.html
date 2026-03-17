@@ -1,142 +1,191 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Chaos Pizza</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-100 text-gray-900">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Chaos Pizza</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/utils.js"></script>
+  </head>
+  <body class="bg-gray-100 text-gray-900">
+    <div class="max-w-6xl mx-auto p-8">
+      <h1 class="text-3xl font-bold mb-10">🍕 Chaos Pizza</h1>
 
-  <div class="max-w-6xl mx-auto p-8">
-    <h1 class="text-3xl font-bold mb-10">🍕 Chaos Pizza</h1>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
+        <!-- LEFT -->
+        <div class="md:col-span-2 space-y-6">
+          <h2 class="text-lg font-semibold">Select your pizza</h2>
+          <div id="pizzaList" class="space-y-3"></div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
-      
-      <!-- LEFT -->
-      <div class="md:col-span-2 space-y-6">
-        <h2 class="text-lg font-semibold">Select your pizza</h2>
-        <div id="pizzaList" class="space-y-3"></div>
+          <!-- Quantity -->
+          <div class="flex items-center gap-4">
+            <span class="font-medium">Quantity</span>
+            <button onclick="changeQty(-1)" class="px-3 py-1 border rounded">
+              −
+            </button>
+            <input
+              id="qty"
+              type="number"
+              value="1"
+              min="1"
+              class="w-16 text-center border rounded"
+            />
+            <button onclick="changeQty(1)" class="px-3 py-1 border rounded">
+              +
+            </button>
+          </div>
 
-        <!-- Quantity -->
-        <div class="flex items-center gap-4">
-          <span class="font-medium">Quantity</span>
-          <button onclick="changeQty(-1)"
-            class="px-3 py-1 border rounded">−</button>
-          <input id="qty" type="number" value="1" min="1"
-            class="w-16 text-center border rounded" />
-          <button onclick="changeQty(1)"
-            class="px-3 py-1 border rounded">+</button>
+          <!-- Promo -->
+          <div>
+            <input
+              id="promo"
+              type="text"
+              placeholder="Promo code"
+              class="w-64 border rounded px-4 py-2"
+            />
+          </div>
         </div>
 
-        <!-- Promo -->
-        <div>
-          <input id="promo" type="text"
-            placeholder="Promo code"
-            class="w-64 border rounded px-4 py-2" />
+        <!-- RIGHT -->
+        <div class="bg-white rounded-xl shadow p-6 h-fit">
+          <h2 class="text-lg font-semibold mb-4">Order Summary</h2>
+
+          <div class="flex justify-between text-sm mb-2">
+            <span id="summaryName">—</span>
+            <span id="summaryPrice">—</span>
+          </div>
+
+          <hr class="my-4" />
+
+          <div class="flex flex-col gap-4">
+            <div class="flex flex-col gap-2">
+              <div class="flex justify-between italic">
+                <span>Total HT</span>
+                <span id="totalHT">—</span>
+              </div>
+
+              <div class="flex justify-between italic">
+                <span>Total TVA (<span id="tvaRateDisplay">—</span>%)</span>
+                <span id="totalTVA">—</span>
+              </div>
+            </div>
+
+            <div class="flex justify-between font-bold text-lg">
+              <span>Total TTC</span>
+              <span id="totalTTC">—</span>
+            </div>
+          </div>
+
+          <button
+            onclick="placeOrder()"
+            class="mt-6 w-full bg-black text-white py-3 rounded-lg hover:bg-gray-800"
+          >
+            Place Order
+          </button>
+
+          <pre
+            id="result"
+            class="mt-4 bg-gray-900 text-green-400 text-xs p-3 rounded overflow-auto"
+          ></pre>
         </div>
-      </div>
-
-      <!-- RIGHT -->
-      <div class="bg-white rounded-xl shadow p-6 h-fit">
-        <h2 class="text-lg font-semibold mb-4">Order Summary</h2>
-
-        <div class="flex justify-between text-sm mb-2">
-          <span id="summaryName">—</span>
-          <span id="summaryPrice">—</span>
-        </div>
-
-        <hr class="my-4">
-
-        <div class="flex justify-between font-bold text-lg">
-          <span>Total</span>
-          <span id="total">—</span>
-        </div>
-
-        <button onclick="placeOrder()"
-          class="mt-6 w-full bg-black text-white py-3 rounded-lg hover:bg-gray-800">
-          Place Order
-        </button>
-
-        <pre id="result"
-          class="mt-4 bg-gray-900 text-green-400 text-xs p-3 rounded overflow-auto"></pre>
       </div>
     </div>
-  </div>
 
-<script>
-let pizzas = [];
-let selectedPizza = null;
+    <script>
+      let pizzas = [];
+      let selectedPizza = null;
+      let config = null;
 
-fetch('/pizzas')
-  .then(r => r.json())
-  .then(data => {
-    pizzas = data;
-    renderPizzas();
-  });
+      fetch("/config")
+        .then((r) => r.json())
+        .then((data) => {
+          config = data;
+          updateSummary();
+        });
 
-function renderPizzas() {
-  const list = document.getElementById('pizzaList');
-  list.innerHTML = '';
+      fetch("/pizzas")
+        .then((r) => r.json())
+        .then((data) => {
+          pizzas = data;
+          renderPizzas();
+        });
 
-  pizzas.forEach(p => {
-    const div = document.createElement('div');
-    div.className =
-      'flex justify-between items-center p-4 bg-white rounded-lg border cursor-pointer hover:bg-gray-50';
-    div.innerHTML = `
-      <span class="font-medium">${p.name}</span>
-      <span class="text-gray-500">${p.price}€</span>
-    `;
-    div.onclick = () => selectPizza(p, div);
-    list.appendChild(div);
-  });
-}
+      function renderPizzas() {
+        const list = document.getElementById("pizzaList");
+        list.innerHTML = "";
 
-function selectPizza(pizza, el) {
-  document.querySelectorAll('#pizzaList > div')
-    .forEach(d => d.classList.remove('border-black'));
-  el.classList.add('border-black');
-  selectedPizza = pizza;
-  updateSummary();
-}
+        pizzas.forEach((p) => {
+          const div = document.createElement("div");
+          div.className =
+            "flex justify-between items-center p-4 bg-white rounded-lg border cursor-pointer hover:bg-gray-50";
+          div.innerHTML = `
+        <span class="font-medium">${p.name}</span>
+        <span class="text-gray-500">${p.price}€</span>
+      `;
+          div.onclick = () => selectPizza(p, div);
+          list.appendChild(div);
+        });
+      }
 
-function changeQty(delta) {
-  const input = document.getElementById('qty');
-  input.value = Math.max(1, Number(input.value) + delta);
-  updateSummary();
-}
+      function selectPizza(pizza, el) {
+        document
+          .querySelectorAll("#pizzaList > div")
+          .forEach((d) => d.classList.remove("border-black"));
+        el.classList.add("border-black");
+        selectedPizza = pizza;
+        updateSummary();
+      }
 
-function updateSummary() {
-  if (!selectedPizza) return;
-  const qty = Number(document.getElementById('qty').value);
-  document.getElementById('summaryName').innerText =
-    `${selectedPizza.name} x${qty}`;
-  document.getElementById('summaryPrice').innerText =
-    `${selectedPizza.price * qty}€`;
-  document.getElementById('total').innerText =
-    `${selectedPizza.price * qty}€`;
-}
+      function changeQty(delta) {
+        const input = document.getElementById("qty");
+        input.value = Math.max(1, Number(input.value) + delta);
+        updateSummary();
+      }
 
-function placeOrder() {
-  if (!selectedPizza) return;
+      function updateSummary() {
+        if (!selectedPizza) return;
+        const qty = Number(document.getElementById("qty").value);
+        const totalHT = selectedPizza.price * qty;
+        const tvaRate = config ? config.TVA_RATE : 0.1;
+        const totalTVA = totalHT * tvaRate;
+        const totalTTC = totalHT + totalTVA;
+        document.getElementById("summaryName").innerText =
+          `${selectedPizza.name} x${qty}`;
+        document.getElementById("summaryPrice").innerText =
+          `${selectedPizza.price * qty}€`;
+        document.getElementById("totalHT").innerText =
+          `${formatPrice(round(totalHT))}`;
+        document.getElementById("totalTVA").innerText =
+          `${formatPrice(round(totalTVA))}`;
+        document.getElementById("totalTTC").innerText =
+          `${formatPrice(round(totalTTC))}`;
+        document.getElementById("tvaRateDisplay").innerText = tvaRate * 100;
+      }
 
-  fetch('/orders', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      items: [{
-        pizzaId: selectedPizza.id,
-        qty: Number(document.getElementById('qty').value)
-      }],
-      promoCode: document.getElementById('promo').value
-    })
-  })
-  .then(r => r.json())
-  .then(data => {
-    document.getElementById('result').innerText =
-      JSON.stringify(data, null, 2);
-  });
-}
-</script>
+      function placeOrder() {
+        if (!selectedPizza) return;
 
-</body>
+        fetch("/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            items: [
+              {
+                pizzaId: selectedPizza.id,
+                qty: Number(document.getElementById("qty").value),
+              },
+            ],
+            promoCode: document.getElementById("promo").value,
+          }),
+        })
+          .then((r) => r.json())
+          .then((data) => {
+            document.getElementById("result").innerText = JSON.stringify(
+              data,
+              null,
+              2,
+            );
+          });
+      }
+    </script>
+  </body>
 </html>
