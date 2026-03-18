@@ -43,6 +43,16 @@
               class="w-64 border rounded px-4 py-2"
             />
           </div>
+
+          <!-- Email -->
+          <div>
+            <input
+              id="email"
+              type="email"
+              placeholder="Email"
+              class="w-64 border rounded px-4 py-2"
+            />
+          </div>
         </div>
 
         <!-- RIGHT -->
@@ -81,11 +91,6 @@
           >
             Place Order
           </button>
-
-          <pre
-            id="result"
-            class="mt-4 bg-gray-900 text-green-400 text-xs p-3 rounded overflow-auto"
-          ></pre>
         </div>
       </div>
     </div>
@@ -164,6 +169,16 @@
       function placeOrder() {
         if (!selectedPizza) return;
 
+        const email = document.getElementById("email").value.trim();
+        if (!email) {
+          document.getElementById("result").innerText = JSON.stringify(
+            { error: "email required" },
+            null,
+            2,
+          );
+          return;
+        }
+
         fetch("/orders", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -174,6 +189,7 @@
                 qty: Number(document.getElementById("qty").value),
               },
             ],
+            email,
             promoCode: document.getElementById("promo").value,
           }),
         })
