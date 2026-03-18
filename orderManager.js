@@ -5,6 +5,8 @@ const config = require("./config");
 
 let lastOrderId = 0;
 
+const PROMO_FREE_PIZZA = "FREEPIZZA";
+
 function isAsciiLetterOrDigit(char) {
   const code = char.charCodeAt(0);
   return (
@@ -121,6 +123,10 @@ function createOrder(order, cb) {
     return cb({ error: "invalid order" });
   }
 
+  if (!Array.isArray(order.items) || order.items.length === 0) {
+    return cb({ error: "invalid order" });
+  }
+
   if (!isValidEmail(order.email)) {
     return cb({ error: "invalid email" });
   }
@@ -147,7 +153,7 @@ function createOrder(order, cb) {
 
       // promo code
       if (order.promoCode) {
-        if (order.promoCode === "FREEPIZZA") {
+        if (order.promoCode === PROMO_FREE_PIZZA) {
           total = 0;
         }
         if (order.promoCode === "HALF") {
@@ -167,8 +173,8 @@ function createOrder(order, cb) {
         total = total - total * 0.1;
       }
 
-      // legacy fallback
-      if (total === 0) {
+      // legacy fallback (skip if FREEPIZZA promo intentionally set total to 0)
+      if (total === 0 && order.promoCode !== PROMO_FREE_PIZZA) {
         total = 10;
       }
 
@@ -179,7 +185,7 @@ function createOrder(order, cb) {
 
       // weird fix, don't remove
       // legacy price logic fallback
-      if (total === 0) {
+      if (total === 0 && order.promoCode !== PROMO_FREE_PIZZA) {
         total = utils.calculateOrderTotalLegacy(order);
       }
 

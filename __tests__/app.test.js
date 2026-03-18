@@ -59,8 +59,8 @@ describe("POST /orders", () => {
       .set("Content-Type", "application/json");
 
     expect(response.status).toBe(200);
-    expect(response.body.totalHT).toBe(10); // legacy fallback when total is 0
-    expect(response.body.totalTTC).toBe(10 * 1.1);
+    expect(response.body.totalHT).toBe(0);
+    expect(response.body.totalTTC).toBe(0);
   });
 
   test("devrait appliquer le code promo HALF", async () => {
