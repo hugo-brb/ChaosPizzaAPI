@@ -3,13 +3,22 @@ const db = new sqlite3.Database('./pizza.db');
 
 function ensureOrdersEmailColumn() {
   db.all("PRAGMA table_info(orders)", (err, columns) => {
-    if (err || !Array.isArray(columns)) {
+    if (err) {
+      console.error('Failed to inspect orders table schema:', err);
+      return;
+    }
+    if (!Array.isArray(columns)) {
+      console.error('Unexpected result when inspecting orders table schema:', columns);
       return;
     }
 
     const hasEmailColumn = columns.some((column) => column.name === 'email');
     if (!hasEmailColumn) {
-      db.run("ALTER TABLE orders ADD COLUMN email TEXT");
+      db.run("ALTER TABLE orders ADD COLUMN email TEXT", (alterErr) => {
+        if (alterErr) {
+          console.error('Failed to add email column to orders table:', alterErr);
+        }
+      });
     }
   });
 }
@@ -26,11 +35,28 @@ db.serialize(() => {
   ];
 
   defaultPizzas.forEach((pizza) => {
-    db.get("SELECT COUNT(*) as count FROM pizzas WHERE name = ?", [pizza.name], (err, row) => {
-      if (!err && row && row.count === 0) {
-        db.run("INSERT INTO pizzas (name, price, stock) VALUES (?, ?, ?)", [pizza.name, pizza.price, pizza.stock]);
+    db.get(
+      "SELECT COUNT(*) as count FROM pizzas WHERE name = ?",
+      [pizza.name],
+      (err, row) => {
+        if (err) {
+          console.error('Failed to check existing pizza count for default seed:', err);
+          return;
+        }
+
+        if (row && row.count === 0) {
+          db.run(
+            "INSERT INTO pizzas (name, price, stock) VALUES (?, ?, ?)",
+            [pizza.name, pizza.price, pizza.stock],
+            (insertErr) => {
+              if (insertErr) {
+                console.error('Failed to insert default pizza record:', insertErr);
+              }
+            }
+          );
+        }
       }
-    });
+    );
   });
 });
 
