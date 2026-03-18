@@ -22,8 +22,7 @@ function isValidLocalPart(localPart) {
   }
 
   const allowedSpecials = ".!#$%&'*+/=?^_`{|}~-";
-  for (let i = 0; i < localPart.length; i++) {
-    const char = localPart[i];
+  for (const char of localPart) {
     if (isAsciiLetterOrDigit(char)) {
       continue;
     }
@@ -58,8 +57,7 @@ function isValidDomain(domain) {
     return false;
   }
 
-  for (let i = 0; i < labels.length; i++) {
-    const label = labels[i];
+  for (const label of labels) {
     if (!label || label.length > 63) {
       return false;
     }
@@ -68,8 +66,7 @@ function isValidDomain(domain) {
       return false;
     }
 
-    for (let j = 0; j < label.length; j++) {
-      const char = label[j];
+    for (const char of label) {
       if (!isAsciiLetterOrDigit(char) && char !== "-") {
         return false;
       }
@@ -112,8 +109,7 @@ function isValidEmail(email) {
 function applyInflationTax(ordersRows) {
   const result = [];
 
-  for (let i = 0; i < ordersRows.length; i++) {
-    let order = ordersRows[i];
+  for (const order of ordersRows) {
     order.total = utils.round(order.total);
     result.push(order);
   }
@@ -151,8 +147,7 @@ function createOrder(order, cb) {
 
       let total = 0;
 
-      for (let i = 0; i < order.items.length; i++) {
-        const item = order.items[i];
+      for (const item of order.items) {
         total += pizza.getPizzaPrice(item.pizzaId) * item.qty;
       }
 
@@ -163,6 +158,13 @@ function createOrder(order, cb) {
         }
         if (order.promoCode === "HALF") {
           total = total / 2;
+        }
+        if (order.promoCode === "BOGO") {
+          // For each identical pizza, every second one is free
+          for (const item of order.items) {
+            const freeQty = Math.floor(item.qty / 2);
+            total -= pizza.getPizzaPrice(item.pizzaId) * freeQty;
+          }
         }
       }
 

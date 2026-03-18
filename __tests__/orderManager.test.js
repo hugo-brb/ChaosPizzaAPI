@@ -38,7 +38,7 @@ function setupDbSuccess(stock = 50) {
 
 beforeEach(() => {
   jest.useFakeTimers();
-  jest.clearAllMocks();
+  jest.resetAllMocks();
 });
 
 afterEach(() => {
@@ -289,6 +289,122 @@ describe("createOrder — codes promo", () => {
         email: "client@example.com",
         items: [{ pizzaId: 1, qty: 1 }],
         promoCode: "INVALID",
+      },
+      cb,
+    );
+    jest.runAllTimers();
+  });
+
+  test("promoCode BOGO : qty 2 de la même pizza → 1 gratuite", (done) => {
+    // 2 pizzas à 10€ = 20€, 1 gratuite → total = 10€
+    pizza.getPizzaPrice.mockReturnValue(10);
+    setupDbSuccess();
+
+    const cb = jest.fn((err, result) => {
+      expect(err).toBeNull();
+      expect(result.totalHT).toBe(10);
+      done();
+    });
+
+    createOrder(
+      {
+        email: "test@example.com",
+        items: [{ pizzaId: 1, qty: 2 }],
+        promoCode: "BOGO",
+      },
+      cb,
+    );
+    jest.runAllTimers();
+  });
+
+  test("promoCode BOGO : qty 3 de la même pizza → 1 gratuite", (done) => {
+    // 3 pizzas à 10€ = 30€, 1 gratuite → total = 20€
+    pizza.getPizzaPrice.mockReturnValue(10);
+    setupDbSuccess();
+
+    const cb = jest.fn((err, result) => {
+      expect(err).toBeNull();
+      expect(result.totalHT).toBe(20);
+      done();
+    });
+
+    createOrder(
+      {
+        email: "test@example.com",
+        items: [{ pizzaId: 1, qty: 3 }],
+        promoCode: "BOGO",
+      },
+      cb,
+    );
+    jest.runAllTimers();
+  });
+
+  test("promoCode BOGO : qty 4 de la même pizza → 2 gratuites", (done) => {
+    // 4 pizzas à 10€ = 40€, 2 gratuites → total = 20€
+    pizza.getPizzaPrice.mockReturnValue(10);
+    setupDbSuccess();
+
+    const cb = jest.fn((err, result) => {
+      expect(err).toBeNull();
+      expect(result.totalHT).toBe(20);
+      done();
+    });
+
+    createOrder(
+      {
+        email: "test@example.com",
+        items: [{ pizzaId: 1, qty: 4 }],
+        promoCode: "BOGO",
+      },
+      cb,
+    );
+    jest.runAllTimers();
+  });
+
+  test("promoCode BOGO : qty 1 de la même pizza → aucune gratuite", (done) => {
+    // 1 pizza à 10€ = 10€, 0 gratuite → total = 10€
+    pizza.getPizzaPrice.mockReturnValue(10);
+    setupDbSuccess();
+
+    const cb = jest.fn((err, result) => {
+      expect(err).toBeNull();
+      expect(result.totalHT).toBe(10);
+      done();
+    });
+
+    createOrder(
+      {
+        email: "test@example.com",
+        items: [{ pizzaId: 1, qty: 1 }],
+        promoCode: "BOGO",
+      },
+      cb,
+    );
+    jest.runAllTimers();
+  });
+
+  test("promoCode BOGO : deux pizzas différentes, qty 2 chacune → 1 gratuite par type", (done) => {
+    // pizza 1 : 2 × 10€ → 1 gratuite = 10€
+    // pizza 2 : 2 × 12€ → 1 gratuite = 12€
+    // sous-total BOGO = 22€
+    // 2 items distincts → réduction 10% supplémentaire = 22 × 0.9 = 19.8€
+    pizza.getPizzaPrice.mockImplementation((id) => (id === 1 ? 10 : 12));
+    setupDbSuccess();
+
+    const cb = jest.fn((err, result) => {
+      expect(err).toBeNull();
+      expect(result.totalHT).toBe(19.8);
+      done();
+    });
+
+    createOrder(
+      {
+        email: "test@example.com",
+        items: [
+          { pizzaId: 1, qty: 2 },
+          { pizzaId: 2, qty: 2 },
+        ],
+        promoCode: "BOGO",
       },
       cb,
     );
