@@ -100,15 +100,30 @@
             "flex justify-between items-center p-4 bg-white rounded-lg border hover:bg-gray-50";
           div.innerHTML = `
             <div class="flex-1">
-              <span class="font-medium">${p.name}</span>
-              <span class="text-gray-500 ml-2">${p.price}€</span>
+              <span class="font-medium pizza-name"></span>
+              <span class="text-gray-500 ml-2 pizza-price"></span>
             </div>
             <div class="flex items-center gap-2">
               <button onclick="changeCartQty(${p.id}, -1)" class="px-2 py-1 border rounded text-sm hover:bg-gray-100" title="Remove one">−</button>
-              <span id="cartQty-${p.id}" class="w-8 text-center font-mono">${getCartQty(p.id)}</span>
+              <span id="cartQty-${p.id}" class="w-8 text-center font-mono pizza-qty"></span>
               <button onclick="changeCartQty(${p.id}, 1)" class="px-2 py-1 border rounded text-sm hover:bg-gray-100" title="Add one">+</button>
             </div>
           `;
+
+          const nameEl = div.querySelector(".pizza-name");
+          const priceEl = div.querySelector(".pizza-price");
+          const qtyEl = div.querySelector(".pizza-qty");
+
+          if (nameEl) {
+            nameEl.textContent = p.name;
+          }
+          if (priceEl) {
+            priceEl.textContent = `${p.price}€`;
+          }
+          if (qtyEl) {
+            qtyEl.textContent = getCartQty(p.id);
+          }
+
           list.appendChild(div);
         });
       }
