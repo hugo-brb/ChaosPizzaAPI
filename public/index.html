@@ -13,26 +13,8 @@
       <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
         <!-- LEFT -->
         <div class="md:col-span-2 space-y-6">
-          <h2 class="text-lg font-semibold">Select your pizza</h2>
+          <h2 class="text-lg font-semibold">Select your pizzas</h2>
           <div id="pizzaList" class="space-y-3"></div>
-
-          <!-- Quantity -->
-          <div class="flex items-center gap-4">
-            <span class="font-medium">Quantity</span>
-            <button onclick="changeQty(-1)" class="px-3 py-1 border rounded">
-              −
-            </button>
-            <input
-              id="qty"
-              type="number"
-              value="1"
-              min="1"
-              class="w-16 text-center border rounded"
-            />
-            <button onclick="changeQty(1)" class="px-3 py-1 border rounded">
-              +
-            </button>
-          </div>
 
           <!-- Promo -->
           <div>
@@ -49,9 +31,8 @@
         <div class="bg-white rounded-xl shadow p-6 h-fit">
           <h2 class="text-lg font-semibold mb-4">Order Summary</h2>
 
-          <div class="flex justify-between text-sm mb-2">
-            <span id="summaryName">—</span>
-            <span id="summaryPrice">—</span>
+          <div id="cartItems" class="space-y-2 mb-4">
+            <p class="text-gray-400 text-sm italic" id="emptyCartMsg">Your cart is empty</p>
           </div>
 
           <hr class="my-4" />
@@ -84,7 +65,7 @@
 
           <pre
             id="result"
-            class="mt-4 bg-gray-900 text-green-400 text-xs p-3 rounded overflow-auto"
+            class="mt-4 bg-gray-900 text-green-400 text-xs p-3 rounded overflow-auto hidden"
           ></pre>
         </div>
       </div>
@@ -92,7 +73,7 @@
 
     <script>
       let pizzas = [];
-      let selectedPizza = null;
+      let cart = []; // { pizzaId, name, price, qty }
       let config = null;
 
       fetch("/config")
@@ -116,64 +97,118 @@
         pizzas.forEach((p) => {
           const div = document.createElement("div");
           div.className =
-            "flex justify-between items-center p-4 bg-white rounded-lg border cursor-pointer hover:bg-gray-50";
+            "flex justify-between items-center p-4 bg-white rounded-lg border hover:bg-gray-50";
           div.innerHTML = `
-        <span class="font-medium">${p.name}</span>
-        <span class="text-gray-500">${p.price}€</span>
-      `;
-          div.onclick = () => selectPizza(p, div);
+            <div class="flex-1">
+              <span class="font-medium">${p.name}</span>
+              <span class="text-gray-500 ml-2">${p.price}€</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="changeCartQty(${p.id}, -1)" class="px-2 py-1 border rounded text-sm hover:bg-gray-100" title="Remove one">−</button>
+              <span id="cartQty-${p.id}" class="w-8 text-center font-mono">${getCartQty(p.id)}</span>
+              <button onclick="changeCartQty(${p.id}, 1)" class="px-2 py-1 border rounded text-sm hover:bg-gray-100" title="Add one">+</button>
+            </div>
+          `;
           list.appendChild(div);
         });
       }
 
-      function selectPizza(pizza, el) {
-        document
-          .querySelectorAll("#pizzaList > div")
-          .forEach((d) => d.classList.remove("border-black"));
-        el.classList.add("border-black");
-        selectedPizza = pizza;
+      function getCartQty(pizzaId) {
+        const item = cart.find((c) => c.pizzaId === pizzaId);
+        return item ? item.qty : 0;
+      }
+
+      function changeCartQty(pizzaId, delta) {
+        const pizza = pizzas.find((p) => p.id === pizzaId);
+        if (!pizza) return;
+
+        const existing = cart.find((c) => c.pizzaId === pizzaId);
+
+        if (existing) {
+          existing.qty += delta;
+          if (existing.qty <= 0) {
+            // Remove from cart
+            cart = cart.filter((c) => c.pizzaId !== pizzaId);
+          }
+        } else if (delta > 0) {
+          cart.push({ pizzaId: pizza.id, name: pizza.name, price: pizza.price, qty: delta });
+        }
+
+        // Update the counter in the pizza list
+        const qtyEl = document.getElementById(`cartQty-${pizzaId}`);
+        if (qtyEl) {
+          qtyEl.innerText = getCartQty(pizzaId);
+        }
+
         updateSummary();
       }
 
-      function changeQty(delta) {
-        const input = document.getElementById("qty");
-        input.value = Math.max(1, Number(input.value) + delta);
+      function removeFromCart(pizzaId) {
+        cart = cart.filter((c) => c.pizzaId !== pizzaId);
+
+        // Update the counter in the pizza list
+        const qtyEl = document.getElementById(`cartQty-${pizzaId}`);
+        if (qtyEl) {
+          qtyEl.innerText = 0;
+        }
+
         updateSummary();
       }
 
       function updateSummary() {
-        if (!selectedPizza) return;
-        const qty = Number(document.getElementById("qty").value);
-        const totalHT = selectedPizza.price * qty;
+        const cartItemsEl = document.getElementById("cartItems");
+        const emptyMsg = document.getElementById("emptyCartMsg");
+
+        if (cart.length === 0) {
+          cartItemsEl.innerHTML = '<p class="text-gray-400 text-sm italic" id="emptyCartMsg">Your cart is empty</p>';
+          document.getElementById("totalHT").innerText = "—";
+          document.getElementById("totalTVA").innerText = "—";
+          document.getElementById("totalTTC").innerText = "—";
+          document.getElementById("tvaRateDisplay").innerText = config ? config.TVA_RATE * 100 : "—";
+          return;
+        }
+
+        // Render cart items
+        cartItemsEl.innerHTML = "";
+        cart.forEach((item) => {
+          const row = document.createElement("div");
+          row.className = "flex justify-between items-center text-sm";
+          row.innerHTML = `
+            <div class="flex items-center gap-2">
+              <button onclick="removeFromCart(${item.pizzaId})" class="text-red-400 hover:text-red-600 text-xs" title="Remove">✕</button>
+              <span>${item.name} x${item.qty}</span>
+            </div>
+            <span>${formatPrice(round(item.price * item.qty))}</span>
+          `;
+          cartItemsEl.appendChild(row);
+        });
+
+        // Calculate totals
+        let totalHT = 0;
+        cart.forEach((item) => {
+          totalHT += item.price * item.qty;
+        });
+
         const tvaRate = config ? config.TVA_RATE : 0.1;
         const totalTVA = totalHT * tvaRate;
         const totalTTC = totalHT + totalTVA;
-        document.getElementById("summaryName").innerText =
-          `${selectedPizza.name} x${qty}`;
-        document.getElementById("summaryPrice").innerText =
-          `${selectedPizza.price * qty}€`;
-        document.getElementById("totalHT").innerText =
-          `${formatPrice(round(totalHT))}`;
-        document.getElementById("totalTVA").innerText =
-          `${formatPrice(round(totalTVA))}`;
-        document.getElementById("totalTTC").innerText =
-          `${formatPrice(round(totalTTC))}`;
+
+        document.getElementById("totalHT").innerText = formatPrice(round(totalHT));
+        document.getElementById("totalTVA").innerText = formatPrice(round(totalTVA));
+        document.getElementById("totalTTC").innerText = formatPrice(round(totalTTC));
         document.getElementById("tvaRateDisplay").innerText = tvaRate * 100;
       }
 
       function placeOrder() {
-        if (!selectedPizza) return;
+        if (cart.length === 0) return;
+
+        const items = cart.map((c) => ({ pizzaId: c.pizzaId, qty: c.qty }));
 
         fetch("/orders", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            items: [
-              {
-                pizzaId: selectedPizza.id,
-                qty: Number(document.getElementById("qty").value),
-              },
-            ],
+            items: items,
             promoCode: document.getElementById("promo").value,
           }),
         })
@@ -184,6 +219,7 @@
               null,
               2,
             );
+            document.getElementById("result").classList.remove("hidden");
           });
       }
     </script>

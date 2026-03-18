@@ -19,12 +19,18 @@ db.serialize(() => {
   db.run("CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY AUTOINCREMENT, total REAL, status TEXT, promo TEXT, email TEXT)");
   ensureOrdersEmailColumn();
   
-  db.get("SELECT COUNT(*) as count FROM pizzas", (err, row) => {
-      if (row.count === 0) {
-          db.run("INSERT INTO pizzas (name, price, stock) VALUES ('Margherita', 10.0, 50)");
-          db.run("INSERT INTO pizzas (name, price, stock) VALUES ('Pepperoni', 12.5, 30)");
-          db.run("INSERT INTO pizzas (name, price, stock) VALUES ('Hawaian', 11, 38)");
+  const defaultPizzas = [
+    { name: 'Margherita', price: 10.0, stock: 50 },
+    { name: 'Pepperoni', price: 12.5, stock: 30 },
+    { name: 'Hawaian', price: 11, stock: 38 },
+  ];
+
+  defaultPizzas.forEach((pizza) => {
+    db.get("SELECT COUNT(*) as count FROM pizzas WHERE name = ?", [pizza.name], (err, row) => {
+      if (!err && row && row.count === 0) {
+        db.run("INSERT INTO pizzas (name, price, stock) VALUES (?, ?, ?)", [pizza.name, pizza.price, pizza.stock]);
       }
+    });
   });
 });
 
