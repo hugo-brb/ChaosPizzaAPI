@@ -32,8 +32,8 @@ scenarios:
             email: "client_loadtest_{{$randomNumber(1,1000)}}@example.com"
             promoCode: "HALF"
             items:
-              - pizzaId: "{{$randomNumber(1,5)}}"
-                qty: "{{$randomNumber(1,3)}}"
+              - pizzaId: {{$randomNumber(1,5)}}
+                qty: {{$randomNumber(1,3)}}
           capture: 
             - json: "$.email"
               as: "userEmail"
