@@ -276,20 +276,26 @@
         })
           .then((r) => {
             if (!r.ok) {
-              // Try to extract a useful error message from the response body, if any
-              return r
-                .json()
-                .then((err) => {
-                  const message =
-                    err && typeof err === "object" && err.message
-                      ? err.message
-                      : "Failed to place order.";
-                  throw new Error(message);
-                })
-                .catch(() => {
-                  // If parsing the error body fails, fall back to a generic message
-                  throw new Error("Failed to place order.");
-                });
+              // Try to extract a useful error message from the response body, if any.
+              // If parsing fails or no message is found, fall back to a generic message.
+              return r.text().then((body) => {
+                let message = "Failed to place order.";
+                if (body) {
+                  try {
+                    const err = JSON.parse(body);
+                    if (err && typeof err === "object") {
+                      if (typeof err.error === "string" && err.error) {
+                        message = err.error;
+                      } else if (typeof err.message === "string" && err.message) {
+                        message = err.message;
+                      }
+                    }
+                  } catch (_) {
+                    // Ignore JSON parse errors and keep the generic message.
+                  }
+                }
+                throw new Error(message);
+              });
             }
             return r.json();
           })
