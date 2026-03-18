@@ -44,7 +44,7 @@ db.serialize(() => {
   const defaultPizzas = [
     { name: "Margherita", price: 10.0, stock: 50 },
     { name: "Pepperoni", price: 12.5, stock: 30 },
-    { name: "Hawaian", price: 11, stock: 38 },
+    { name: "4 Formaggi", price: 13.0, stock: 67 },
   ];
 
   defaultPizzas.forEach((pizza) => {

@@ -25,6 +25,16 @@
               class="w-64 border rounded px-4 py-2"
             />
           </div>
+
+          <!-- Email -->
+          <div>
+            <input
+              id="email"
+              type="email"
+              placeholder="Email"
+              class="w-64 border rounded px-4 py-2"
+            />
+          </div>
         </div>
 
         <!-- RIGHT -->
@@ -65,10 +75,7 @@
             Place Order
           </button>
 
-          <pre
-            id="result"
-            class="mt-4 bg-gray-900 text-green-400 text-xs p-3 rounded overflow-auto hidden"
-          ></pre>
+          <p id="orderFeedback" class="mt-3 text-sm text-red-600"></p>
         </div>
       </div>
     </div>
@@ -247,22 +254,28 @@
       }
 
       function placeOrder() {
-        if (cart.length === 0) return;
+        const feedbackEl = document.getElementById("orderFeedback");
 
-        const email = window.prompt(
-          "Please enter your email address for order confirmation:",
-        );
-        if (!email) {
+        if (!selectedPizza) {
+          feedbackEl.innerText =
+            "Please select a pizza before placing the order.";
           return;
         }
 
-        const items = cart.map((c) => ({ pizzaId: c.pizzaId, qty: c.qty }));
+        const email = document.getElementById("email").value.trim();
+        if (!email) {
+          feedbackEl.innerText = "Email is required.";
+          return;
+        }
+
+        feedbackEl.innerText = "";
 
         fetch("/orders", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             items: items,
+            email,
             promoCode: document.getElementById("promo").value,
             email: email,
           }),
@@ -287,16 +300,12 @@
             return r.json();
           })
           .then((data) => {
-            document.getElementById("result").innerText = JSON.stringify(
-              data,
-              null,
-              2,
-            );
-            document.getElementById("result").classList.remove("hidden");
-          })
-          .catch((err) => {
-            // Surface the error without revealing the success result area
-            alert(err && err.message ? err.message : "Failed to place order.");
+            if (data && data.error) {
+              feedbackEl.innerText = data.error;
+              return;
+            }
+
+            feedbackEl.innerText = "Order placed successfully.";
           });
       }
     </script>
