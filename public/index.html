@@ -268,7 +268,14 @@
           return;
         }
 
-        feedbackEl.innerText = "";
+        const items = cart.map((c) => ({ pizzaId: c.pizzaId, qty: c.qty }));
+
+        // Clear and hide any previous result before starting a new order attempt
+        const resultEl = document.getElementById("result");
+        if (resultEl) {
+          resultEl.innerText = "";
+          resultEl.classList.add("hidden");
+        }
 
         fetch("/orders", {
           method: "POST",
@@ -282,30 +289,48 @@
         })
           .then((r) => {
             if (!r.ok) {
-              // Try to extract a useful error message from the response body, if any
-              return r
-                .json()
-                .then((err) => {
-                  const message =
-                    err && typeof err === "object" && err.message
-                      ? err.message
-                      : "Failed to place order.";
-                  throw new Error(message);
-                })
-                .catch(() => {
-                  // If parsing the error body fails, fall back to a generic message
-                  throw new Error("Failed to place order.");
-                });
+              // Try to extract a useful error message from the response body, if any.
+              // If parsing fails or no message is found, fall back to a generic message.
+              return r.text().then((body) => {
+                let message = "Failed to place order.";
+                if (body) {
+                  try {
+                    const err = JSON.parse(body);
+                    if (err && typeof err === "object") {
+                      if (typeof err.error === "string" && err.error) {
+                        message = err.error;
+                      } else if (
+                        typeof err.message === "string" &&
+                        err.message
+                      ) {
+                        message = err.message;
+                      }
+                    }
+                  } catch (_) {
+                    // Ignore JSON parse errors and keep the generic message.
+                  }
+                }
+                throw new Error(message);
+              });
             }
             return r.json();
           })
           .then((data) => {
-            if (data && data.error) {
-              feedbackEl.innerText = data.error;
-              return;
+            document.getElementById("result").innerText = JSON.stringify(
+              data,
+              null,
+              2,
+            );
+            document.getElementById("result").classList.remove("hidden");
+          })
+          .catch((err) => {
+            // Ensure any previous success result is not shown on error
+            const errResultEl = document.getElementById("result");
+            if (errResultEl) {
+              errResultEl.classList.add("hidden");
             }
-
-            feedbackEl.innerText = "Order placed successfully.";
+            // Surface the error without revealing the success result area
+            alert(err && err.message ? err.message : "Failed to place order.");
           });
       }
     </script>
