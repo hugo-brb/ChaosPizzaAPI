@@ -26,7 +26,6 @@ db.serialize(() => {
     if (row.count === 0) {
       db.run("INSERT INTO pizzas (name, price, stock) VALUES ('Margherita', 10.0, 50)");
       db.run("INSERT INTO pizzas (name, price, stock) VALUES ('Pepperoni', 12.5, 30)");
-      db.run("INSERT INTO pizzas (name, price, stock) VALUES ('Hawaian', 11, 38)");
       db.run("INSERT INTO pizzas (name, price, stock) VALUES ('4 Formaggi', 13.0, 67)"); // Petite pizza secrete (pour les gourmands)
     }
   });
