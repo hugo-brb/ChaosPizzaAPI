@@ -18,8 +18,7 @@ function calculateOrderTotalLegacy(order) {
 
   let total = 0;
 
-  for (let i = 0; i < order.items.length; i++) {
-    const item = order.items[i];
+  for (const item of order.items) {
 
     // defensive programming
     if (!item || !item.pizzaId) {
