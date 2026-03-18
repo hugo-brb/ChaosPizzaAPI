@@ -25,16 +25,6 @@
               class="w-64 border rounded px-4 py-2"
             />
           </div>
-
-          <!-- Email -->
-          <div>
-            <input
-              id="email"
-              type="email"
-              placeholder="Email"
-              class="w-64 border rounded px-4 py-2"
-            />
-          </div>
         </div>
 
         <!-- RIGHT -->
@@ -68,14 +58,34 @@
             </div>
           </div>
 
+          <!-- Email -->
+          <div class="mt-4">
+            <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input
+              id="email"
+              type="email"
+              placeholder="your@email.com"
+              oninput="updateOrderButton()"
+              class="w-full border rounded px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+            />
+            <p id="emailHint" class="text-xs text-gray-400 mt-1">Required to place an order</p>
+          </div>
+
           <button
+            id="orderBtn"
             onclick="placeOrder()"
-            class="mt-6 w-full bg-black text-white py-3 rounded-lg hover:bg-gray-800"
+            disabled
+            class="mt-4 w-full bg-gray-300 text-gray-500 py-3 rounded-lg cursor-not-allowed transition-colors"
           >
             Place Order
           </button>
 
           <p id="orderFeedback" class="mt-3 text-sm text-red-600"></p>
+
+          <pre
+            id="result"
+            class="mt-4 bg-gray-900 text-green-400 text-xs p-3 rounded overflow-auto hidden"
+          ></pre>
         </div>
       </div>
     </div>
@@ -151,7 +161,6 @@
         if (existing) {
           existing.qty += delta;
           if (existing.qty <= 0) {
-            // Remove from cart
             cart = cart.filter((c) => c.pizzaId !== pizzaId);
           }
         } else if (delta > 0) {
@@ -163,7 +172,6 @@
           });
         }
 
-        // Update the counter in the pizza list
         const qtyEl = document.getElementById(`cartQty-${pizzaId}`);
         if (qtyEl) {
           qtyEl.innerText = getCartQty(pizzaId);
@@ -175,7 +183,6 @@
       function removeFromCart(pizzaId) {
         cart = cart.filter((c) => c.pizzaId !== pizzaId);
 
-        // Update the counter in the pizza list
         const qtyEl = document.getElementById(`cartQty-${pizzaId}`);
         if (qtyEl) {
           qtyEl.innerText = 0;
@@ -251,46 +258,64 @@
           round(totalTTC),
         );
         document.getElementById("tvaRateDisplay").innerText = tvaRate * 100;
+
+        updateOrderButton();
+      }
+
+      function isEmailValid() {
+        const emailInput = document.getElementById("email");
+        return emailInput.value.trim() !== "" && emailInput.validity.valid;
+      }
+
+      function updateOrderButton() {
+        const btn = document.getElementById("orderBtn");
+        const hint = document.getElementById("emailHint");
+        const emailInput = document.getElementById("email");
+        const emailValue = emailInput.value.trim();
+        const valid = emailValue !== "" && emailInput.validity.valid;
+
+        if (valid) {
+          btn.disabled = false;
+          btn.className = "mt-4 w-full bg-black text-white py-3 rounded-lg hover:bg-gray-800 transition-colors cursor-pointer";
+          hint.className = "text-xs text-green-500 mt-1";
+          hint.innerText = "✓ Valid email";
+        } else {
+          btn.disabled = true;
+          btn.className = "mt-4 w-full bg-gray-300 text-gray-500 py-3 rounded-lg cursor-not-allowed transition-colors";
+          if (emailValue === "") {
+            hint.className = "text-xs text-gray-400 mt-1";
+            hint.innerText = "Required to place an order";
+          } else {
+            hint.className = "text-xs text-red-500 mt-1";
+            hint.innerText = "Please enter a valid email address";
+          }
+        }
       }
 
       function placeOrder() {
         const feedbackEl = document.getElementById("orderFeedback");
+        feedbackEl.innerText = "";
 
-        if (!selectedPizza) {
-          feedbackEl.innerText =
-            "Please select a pizza before placing the order.";
+        if (cart.length === 0) {
+          feedbackEl.innerText = "Please add at least one pizza to your cart.";
           return;
         }
 
         const email = document.getElementById("email").value.trim();
-        if (!email) {
-          feedbackEl.innerText = "Email is required.";
-          return;
-        }
 
         const items = cart.map((c) => ({ pizzaId: c.pizzaId, qty: c.qty }));
-
-        // Clear and hide any previous result before starting a new order attempt
-        const resultEl = document.getElementById("result");
-        if (resultEl) {
-          resultEl.innerText = "";
-          resultEl.classList.add("hidden");
-        }
 
         fetch("/orders", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             items: items,
-            email,
-            promoCode: document.getElementById("promo").value,
             email: email,
+            promoCode: document.getElementById("promo").value,
           }),
         })
           .then((r) => {
             if (!r.ok) {
-              // Try to extract a useful error message from the response body, if any.
-              // If parsing fails or no message is found, fall back to a generic message.
               return r.text().then((body) => {
                 let message = "Failed to place order.";
                 if (body) {
@@ -307,7 +332,7 @@
                       }
                     }
                   } catch (_) {
-                    // Ignore JSON parse errors and keep the generic message.
+                    // Ignore JSON parse errors
                   }
                 }
                 throw new Error(message);
@@ -316,21 +341,22 @@
             return r.json();
           })
           .then((data) => {
-            document.getElementById("result").innerText = JSON.stringify(
-              data,
-              null,
-              2,
-            );
-            document.getElementById("result").classList.remove("hidden");
+            feedbackEl.className = "mt-3 text-sm text-green-600";
+            feedbackEl.innerText = "✓ Order placed successfully!";
+
+            const resultEl = document.getElementById("result");
+            resultEl.innerText = JSON.stringify(data, null, 2);
+            resultEl.classList.remove("hidden");
+
+            // Reset cart
+            cart = [];
+            renderPizzas();
+            updateSummary();
           })
           .catch((err) => {
-            // Ensure any previous success result is not shown on error
-            const errResultEl = document.getElementById("result");
-            if (errResultEl) {
-              errResultEl.classList.add("hidden");
-            }
-            // Surface the error without revealing the success result area
-            alert(err && err.message ? err.message : "Failed to place order.");
+            feedbackEl.className = "mt-3 text-sm text-red-600";
+            feedbackEl.innerText =
+              err && err.message ? err.message : "Failed to place order.";
           });
       }
     </script>

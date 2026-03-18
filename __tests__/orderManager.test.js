@@ -140,6 +140,81 @@ describe("createOrder — validation", () => {
     createOrder({ email: longLocalPart, items: [{ pizzaId: 1, qty: 1 }] }, cb);
     expect(cb).toHaveBeenCalledWith({ error: "invalid email" });
   });
+
+  test("rejette si items n'est pas un tableau", () => {
+    const cb = jest.fn();
+    createOrder({ email: "client@example.com", items: "not-an-array" }, cb);
+    expect(cb).toHaveBeenCalledWith({ error: "invalid order" });
+  });
+
+  test("rejette si items est un tableau vide", () => {
+    const cb = jest.fn();
+    createOrder({ email: "client@example.com", items: [] }, cb);
+    expect(cb).toHaveBeenCalledWith({ error: "invalid order" });
+  });
+
+  test("rejette un email avec des espaces", () => {
+    const cb = jest.fn();
+    createOrder({ email: "a b@example.com", items: [{ pizzaId: 1, qty: 1 }] }, cb);
+    expect(cb).toHaveBeenCalledWith({ error: "invalid email" });
+  });
+
+  test("rejette un email de plus de 254 caractères", () => {
+    const cb = jest.fn();
+    const longEmail = `${'a'.repeat(243)}@example.com`;
+    createOrder({ email: longEmail, items: [{ pizzaId: 1, qty: 1 }] }, cb);
+    expect(cb).toHaveBeenCalledWith({ error: "invalid email" });
+  });
+
+  test("rejette un email dont le type n'est pas string", () => {
+    const cb = jest.fn();
+    createOrder({ email: 12345, items: [{ pizzaId: 1, qty: 1 }] }, cb);
+    expect(cb).toHaveBeenCalledWith({ error: "invalid email" });
+  });
+
+  test("rejette un email avec un domaine > 253 caractères", () => {
+    const cb = jest.fn();
+    const longDomain = `a@${'a'.repeat(250)}.com`;
+    createOrder({ email: longDomain, items: [{ pizzaId: 1, qty: 1 }] }, cb);
+    expect(cb).toHaveBeenCalledWith({ error: "invalid email" });
+  });
+
+  test("rejette un email avec un label de domaine > 63 caractères", () => {
+    const cb = jest.fn();
+    const longLabel = `a@${'a'.repeat(64)}.com`;
+    createOrder({ email: longLabel, items: [{ pizzaId: 1, qty: 1 }] }, cb);
+    expect(cb).toHaveBeenCalledWith({ error: "invalid email" });
+  });
+
+  test("rejette un email avec un label de domaine vide (..)", () => {
+    const cb = jest.fn();
+    createOrder({ email: "a@example..com", items: [{ pizzaId: 1, qty: 1 }] }, cb);
+    expect(cb).toHaveBeenCalledWith({ error: "invalid email" });
+  });
+
+  test("rejette un email avec un caractère spécial non autorisé dans la local-part", () => {
+    const cb = jest.fn();
+    createOrder({ email: "a\x01b@example.com", items: [{ pizzaId: 1, qty: 1 }] }, cb);
+    expect(cb).toHaveBeenCalledWith({ error: "invalid email" });
+  });
+
+  test("accepte un email valide avec caractères spéciaux autorisés", () => {
+    pizza.getPizzaPrice.mockReturnValue(10);
+    setupDbSuccess();
+    const cb = jest.fn();
+    createOrder({ email: "user+tag@example.com", items: [{ pizzaId: 1, qty: 1 }] }, cb);
+    jest.runAllTimers();
+    expect(cb).toHaveBeenCalledWith(null, expect.objectContaining({ status: "CREATED" }));
+  });
+
+  test("normalise l'email en minuscules et trim", () => {
+    pizza.getPizzaPrice.mockReturnValue(10);
+    setupDbSuccess();
+    const cb = jest.fn();
+    createOrder({ email: "  Client@Example.COM  ", items: [{ pizzaId: 1, qty: 1 }] }, cb);
+    jest.runAllTimers();
+    expect(cb).toHaveBeenCalledWith(null, expect.objectContaining({ email: "client@example.com" }));
+  });
 });
 
 // ─────────────────────────────────────────────
@@ -446,6 +521,43 @@ describe("createOrder — erreurs base de données", () => {
         const cb = getCallbackFromArgs(args);
         cb.call({}, new Error("INSERT failed"));
       }); // INSERT KO
+
+    const cb = jest.fn((err) => {
+      expect(err).toEqual({ error: "db error" });
+      done();
+    });
+
+    createOrder(
+      { email: "client@example.com", items: [{ pizzaId: 1, qty: 1 }] },
+      cb,
+    );
+    jest.runAllTimers();
+  });
+
+  test('erreur lors du db.get → cb appelé avec { error: "db error" }', () => {
+    db.get.mockImplementation((...args) => {
+      const cb = getCallbackFromArgs(args);
+      cb(new Error("SELECT failed"));
+    });
+
+    const cb = jest.fn();
+    createOrder(
+      { email: "client@example.com", items: [{ pizzaId: 1, qty: 1 }] },
+      cb,
+    );
+    expect(cb).toHaveBeenCalledWith({ error: "db error" });
+  });
+
+  test('erreur lors du UPDATE stock → cb appelé avec { error: "db error" }', (done) => {
+    pizza.getPizzaPrice.mockReturnValue(10);
+    db.get.mockImplementation((...args) => {
+      const cb = getCallbackFromArgs(args);
+      cb(null, { stock: 50, price: 10 });
+    });
+    db.run.mockImplementationOnce((...args) => {
+      const cb = getCallbackFromArgs(args);
+      cb.call({}, new Error("UPDATE failed"));
+    });
 
     const cb = jest.fn((err) => {
       expect(err).toEqual({ error: "db error" });
