@@ -1,16 +1,42 @@
 config:
   target: "http://localhost:3000"
   phases:
-    - duration: 5
+    - duration: 10
+      arrivalRate: 5
+      name: "Phase 1: Echauffement (5 req/sec)"
+    - duration: 20
       arrivalRate: 20
-      name: "Ruée sur les 50 Margheritas"
+      name: "Phase 2: Trafic soutenu (20 req/sec)"
+    - duration: 10
+      arrivalRate: 50
+      name: "Phase 3: Pic de trafic (50 req/sec)"
+
 scenarios:
-  - name: "Acheter une pizza"
+  # Scénario 1 : Utilisateur curieux (80% du trafic)
+  - name: "Consulter la carte des pizzas"
+    weight: 8
     flow:
+      - get:
+          url: "/pizzas"
+      
+  # Scénario 2 : Utilisateur régulier qui commande (20% du trafic)
+  - name: "Consulter, commander et vérifier sa commande"
+    weight: 2
+    flow:
+      - get:
+          url: "/pizzas"
+      - think: 2
       - post:
           url: "/orders"
           json:
+            email: "client_loadtest_{{$randomNumber(1,1000)}}@example.com"
             promoCode: "HALF"
             items:
-              - pizzaId: 1
-                qty: 1
+              - pizzaId: {{$randomNumber(1,5)}}
+                qty: {{$randomNumber(1,3)}}
+          capture: 
+            - json: "$.email"
+              as: "userEmail"
+      - think: 1
+      - get:
+          url: "/orders/user/{{ userEmail }}"
