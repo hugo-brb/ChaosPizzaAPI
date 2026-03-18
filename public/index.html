@@ -258,6 +258,13 @@
 
         const items = cart.map((c) => ({ pizzaId: c.pizzaId, qty: c.qty }));
 
+        // Clear and hide any previous result before starting a new order attempt
+        const resultEl = document.getElementById("result");
+        if (resultEl) {
+          resultEl.innerText = "";
+          resultEl.classList.add("hidden");
+        }
+
         fetch("/orders", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -295,6 +302,11 @@
             document.getElementById("result").classList.remove("hidden");
           })
           .catch((err) => {
+            // Ensure any previous success result is not shown on error
+            const errResultEl = document.getElementById("result");
+            if (errResultEl) {
+              errResultEl.classList.add("hidden");
+            }
             // Surface the error without revealing the success result area
             alert(err && err.message ? err.message : "Failed to place order.");
           });
