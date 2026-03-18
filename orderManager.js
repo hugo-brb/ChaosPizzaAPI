@@ -195,28 +195,26 @@ function createOrder(order, cb) {
       const totalHT = total;
       total = total * (1 + config.TVA_RATE);
 
-      setTimeout(function () {
-        db.run(
-          "UPDATE pizzas SET stock = ? WHERE id = ?",
-          [row.stock - qty, firstId],
-          function (err2) {
-            if (err2) return cb({ error: "db error" });
+      db.run(
+        "UPDATE pizzas SET stock = ? WHERE id = ?",
+        [row.stock - qty, firstId],
+        function (err2) {
+          if (err2) return cb({ error: "db error" });
 
-            let q =
-              "INSERT INTO orders (total, status, promo, email) VALUES (?, 'CREATED', ?, ?)";
-            db.run(q, [total, promo, customerEmail], function (err3) {
-              if (err3) return cb({ error: "db error" });
-              cb(null, {
-                id: this.lastID,
-                totalHT: utils.round(totalHT),
-                totalTTC: utils.round(total),
-                email: customerEmail,
-                status: "CREATED",
-              });
+          let q =
+            "INSERT INTO orders (total, status, promo, email) VALUES (?, 'CREATED', ?, ?)";
+          db.run(q, [total, promo, customerEmail], function (err3) {
+            if (err3) return cb({ error: "db error" });
+            cb(null, {
+              id: this.lastID,
+              totalHT: utils.round(totalHT),
+              totalTTC: utils.round(total),
+              email: customerEmail,
+              status: "CREATED",
             });
-          },
-        );
-      }, 300);
+          });
+        },
+      );
     },
   );
 }
