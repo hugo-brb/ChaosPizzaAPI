@@ -188,13 +188,30 @@
         cart.forEach((item) => {
           const row = document.createElement("div");
           row.className = "flex justify-between items-center text-sm";
-          row.innerHTML = `
-            <div class="flex items-center gap-2">
-              <button onclick="removeFromCart(${item.pizzaId})" class="text-red-400 hover:text-red-600 text-xs" title="Remove">✕</button>
-              <span>${item.name} x${item.qty}</span>
-            </div>
-            <span>${formatPrice(round(item.price * item.qty))}</span>
-          `;
+
+          const leftDiv = document.createElement("div");
+          leftDiv.className = "flex items-center gap-2";
+
+          const removeButton = document.createElement("button");
+          removeButton.className = "text-red-400 hover:text-red-600 text-xs";
+          removeButton.title = "Remove";
+          removeButton.textContent = "✕";
+          removeButton.onclick = function () {
+            removeFromCart(item.pizzaId);
+          };
+
+          const nameSpan = document.createElement("span");
+          nameSpan.textContent = `${item.name} x${item.qty}`;
+
+          leftDiv.appendChild(removeButton);
+          leftDiv.appendChild(nameSpan);
+
+          const priceSpan = document.createElement("span");
+          priceSpan.textContent = `${formatPrice(round(item.price * item.qty))}`;
+
+          row.appendChild(leftDiv);
+          row.appendChild(priceSpan);
+
           cartItemsEl.appendChild(row);
         });
 
