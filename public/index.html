@@ -13,26 +13,8 @@
       <div class="grid grid-cols-1 md:grid-cols-3 gap-10">
         <!-- LEFT -->
         <div class="md:col-span-2 space-y-6">
-          <h2 class="text-lg font-semibold">Select your pizza</h2>
+          <h2 class="text-lg font-semibold">Select your pizzas</h2>
           <div id="pizzaList" class="space-y-3"></div>
-
-          <!-- Quantity -->
-          <div class="flex items-center gap-4">
-            <span class="font-medium">Quantity</span>
-            <button onclick="changeQty(-1)" class="px-3 py-1 border rounded">
-              −
-            </button>
-            <input
-              id="qty"
-              type="number"
-              value="1"
-              min="1"
-              class="w-16 text-center border rounded"
-            />
-            <button onclick="changeQty(1)" class="px-3 py-1 border rounded">
-              +
-            </button>
-          </div>
 
           <!-- Promo -->
           <div>
@@ -43,25 +25,16 @@
               class="w-64 border rounded px-4 py-2"
             />
           </div>
-
-          <!-- Email -->
-          <div>
-            <input
-              id="email"
-              type="email"
-              placeholder="Email"
-              class="w-64 border rounded px-4 py-2"
-            />
-          </div>
         </div>
 
         <!-- RIGHT -->
         <div class="bg-white rounded-xl shadow p-6 h-fit">
           <h2 class="text-lg font-semibold mb-4">Order Summary</h2>
 
-          <div class="flex justify-between text-sm mb-2">
-            <span id="summaryName">—</span>
-            <span id="summaryPrice">—</span>
+          <div id="cartItems" class="space-y-2 mb-4">
+            <p class="text-gray-400 text-sm italic" id="emptyCartMsg">
+              Your cart is empty
+            </p>
           </div>
 
           <hr class="my-4" />
@@ -85,21 +58,41 @@
             </div>
           </div>
 
+          <!-- Email -->
+          <div class="mt-4">
+            <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input
+              id="email"
+              type="email"
+              placeholder="your@email.com"
+              oninput="updateOrderButton()"
+              class="w-full border rounded px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+            />
+            <p id="emailHint" class="text-xs text-gray-400 mt-1">Required to place an order</p>
+          </div>
+
           <button
+            id="orderBtn"
             onclick="placeOrder()"
-            class="mt-6 w-full bg-black text-white py-3 rounded-lg hover:bg-gray-800"
+            disabled
+            class="mt-4 w-full bg-gray-300 text-gray-500 py-3 rounded-lg cursor-not-allowed transition-colors"
           >
             Place Order
           </button>
 
           <p id="orderFeedback" class="mt-3 text-sm text-red-600"></p>
+
+          <pre
+            id="result"
+            class="mt-4 bg-gray-900 text-green-400 text-xs p-3 rounded overflow-auto hidden"
+          ></pre>
         </div>
       </div>
     </div>
 
     <script>
       let pizzas = [];
-      let selectedPizza = null;
+      let cart = [];
       let config = null;
 
       fetch("/config")
@@ -123,90 +116,258 @@
         pizzas.forEach((p) => {
           const div = document.createElement("div");
           div.className =
-            "flex justify-between items-center p-4 bg-white rounded-lg border cursor-pointer hover:bg-gray-50";
+            "flex justify-between items-center p-4 bg-white rounded-lg border hover:bg-gray-50";
           div.innerHTML = `
-        <span class="font-medium">${p.name}</span>
-        <span class="text-gray-500">${p.price}€</span>
-      `;
-          div.onclick = () => selectPizza(p, div);
+            <div class="flex-1">
+              <span class="font-medium pizza-name"></span>
+              <span class="text-gray-500 ml-2 pizza-price"></span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="changeCartQty(${p.id}, -1)" class="px-2 py-1 border rounded text-sm hover:bg-gray-100" title="Remove one">−</button>
+              <span id="cartQty-${p.id}" class="w-8 text-center font-mono pizza-qty"></span>
+              <button onclick="changeCartQty(${p.id}, 1)" class="px-2 py-1 border rounded text-sm hover:bg-gray-100" title="Add one">+</button>
+            </div>
+          `;
+
+          const nameEl = div.querySelector(".pizza-name");
+          const priceEl = div.querySelector(".pizza-price");
+          const qtyEl = div.querySelector(".pizza-qty");
+
+          if (nameEl) {
+            nameEl.textContent = p.name;
+          }
+          if (priceEl) {
+            priceEl.textContent = `${p.price}€`;
+          }
+          if (qtyEl) {
+            qtyEl.textContent = getCartQty(p.id);
+          }
+
           list.appendChild(div);
         });
       }
 
-      function selectPizza(pizza, el) {
-        document
-          .querySelectorAll("#pizzaList > div")
-          .forEach((d) => d.classList.remove("border-black"));
-        el.classList.add("border-black");
-        selectedPizza = pizza;
+      function getCartQty(pizzaId) {
+        const item = cart.find((c) => c.pizzaId === pizzaId);
+        return item ? item.qty : 0;
+      }
+
+      function changeCartQty(pizzaId, delta) {
+        const pizza = pizzas.find((p) => p.id === pizzaId);
+        if (!pizza) return;
+
+        const existing = cart.find((c) => c.pizzaId === pizzaId);
+
+        if (existing) {
+          existing.qty += delta;
+          if (existing.qty <= 0) {
+            cart = cart.filter((c) => c.pizzaId !== pizzaId);
+          }
+        } else if (delta > 0) {
+          cart.push({
+            pizzaId: pizza.id,
+            name: pizza.name,
+            price: pizza.price,
+            qty: delta,
+          });
+        }
+
+        const qtyEl = document.getElementById(`cartQty-${pizzaId}`);
+        if (qtyEl) {
+          qtyEl.innerText = getCartQty(pizzaId);
+        }
+
         updateSummary();
       }
 
-      function changeQty(delta) {
-        const input = document.getElementById("qty");
-        input.value = Math.max(1, Number(input.value) + delta);
+      function removeFromCart(pizzaId) {
+        cart = cart.filter((c) => c.pizzaId !== pizzaId);
+
+        const qtyEl = document.getElementById(`cartQty-${pizzaId}`);
+        if (qtyEl) {
+          qtyEl.innerText = 0;
+        }
+
         updateSummary();
       }
 
       function updateSummary() {
-        if (!selectedPizza) return;
-        const qty = Number(document.getElementById("qty").value);
-        const totalHT = selectedPizza.price * qty;
+        const cartItemsEl = document.getElementById("cartItems");
+
+        if (cart.length === 0) {
+          cartItemsEl.innerHTML =
+            '<p class="text-gray-400 text-sm italic" id="emptyCartMsg">Your cart is empty</p>';
+          document.getElementById("totalHT").innerText = "—";
+          document.getElementById("totalTVA").innerText = "—";
+          document.getElementById("totalTTC").innerText = "—";
+          document.getElementById("tvaRateDisplay").innerText = config
+            ? config.TVA_RATE * 100
+            : "—";
+          updateOrderButton();
+          return;
+        }
+
+        // Render cart items
+        cartItemsEl.innerHTML = "";
+        cart.forEach((item) => {
+          const row = document.createElement("div");
+          row.className = "flex justify-between items-center text-sm";
+
+          const leftDiv = document.createElement("div");
+          leftDiv.className = "flex items-center gap-2";
+
+          const removeButton = document.createElement("button");
+          removeButton.className = "text-red-400 hover:text-red-600 text-xs";
+          removeButton.title = "Remove";
+          removeButton.textContent = "✕";
+          removeButton.onclick = function () {
+            removeFromCart(item.pizzaId);
+          };
+
+          const nameSpan = document.createElement("span");
+          nameSpan.textContent = `${item.name} x${item.qty}`;
+
+          leftDiv.appendChild(removeButton);
+          leftDiv.appendChild(nameSpan);
+
+          const priceSpan = document.createElement("span");
+          priceSpan.textContent = `${formatPrice(round(item.price * item.qty))}`;
+
+          row.appendChild(leftDiv);
+          row.appendChild(priceSpan);
+
+          cartItemsEl.appendChild(row);
+        });
+
+        // Calculate totals
+        let totalHT = 0;
+        cart.forEach((item) => {
+          totalHT += item.price * item.qty;
+        });
+
         const tvaRate = config ? config.TVA_RATE : 0.1;
         const totalTVA = totalHT * tvaRate;
         const totalTTC = totalHT + totalTVA;
-        document.getElementById("summaryName").innerText =
-          `${selectedPizza.name} x${qty}`;
-        document.getElementById("summaryPrice").innerText =
-          `${selectedPizza.price * qty}€`;
-        document.getElementById("totalHT").innerText =
-          `${formatPrice(round(totalHT))}`;
-        document.getElementById("totalTVA").innerText =
-          `${formatPrice(round(totalTVA))}`;
-        document.getElementById("totalTTC").innerText =
-          `${formatPrice(round(totalTTC))}`;
+
+        document.getElementById("totalHT").innerText = formatPrice(
+          round(totalHT),
+        );
+        document.getElementById("totalTVA").innerText = formatPrice(
+          round(totalTVA),
+        );
+        document.getElementById("totalTTC").innerText = formatPrice(
+          round(totalTTC),
+        );
         document.getElementById("tvaRateDisplay").innerText = tvaRate * 100;
+
+        updateOrderButton();
+      }
+
+      function isEmailValid() {
+        const emailInput = document.getElementById("email");
+        return emailInput.value.trim() !== "" && emailInput.validity.valid;
+      }
+
+      function updateOrderButton() {
+        const btn = document.getElementById("orderBtn");
+        const hint = document.getElementById("emailHint");
+        const emailInput = document.getElementById("email");
+        const emailValue = emailInput.value.trim();
+        const hasItems = Array.isArray(cart) ? cart.length > 0 : false;
+        const valid = emailValue !== "" && emailInput.validity.valid && hasItems;
+
+        if (valid) {
+          btn.disabled = false;
+          btn.className = "mt-4 w-full bg-black text-white py-3 rounded-lg hover:bg-gray-800 transition-colors cursor-pointer";
+          hint.className = "text-xs text-green-500 mt-1";
+          hint.innerText = "✓ Ready to place your order";
+        } else {
+          btn.disabled = true;
+          btn.className = "mt-4 w-full bg-gray-300 text-gray-500 py-3 rounded-lg cursor-not-allowed transition-colors";
+          if (emailValue === "") {
+            hint.className = "text-xs text-gray-400 mt-1";
+            hint.innerText = "Email is required to place an order";
+          } else if (!emailInput.validity.valid) {
+            hint.className = "text-xs text-red-500 mt-1";
+            hint.innerText = "Please enter a valid email address";
+          } else if (!hasItems) {
+            hint.className = "text-xs text-gray-400 mt-1";
+            hint.innerText = "Add at least one pizza to your cart to place an order";
+          }
+        }
       }
 
       function placeOrder() {
         const feedbackEl = document.getElementById("orderFeedback");
+        feedbackEl.innerText = "";
 
-        if (!selectedPizza) {
+        if (cart.length === 0) {
+          feedbackEl.innerText = "Please add at least one pizza to your cart.";
+          return;
+        }
+
+        if (cart.length > 1) {
           feedbackEl.innerText =
-            "Please select a pizza before placing the order.";
+            "Only one pizza can be ordered at a time right now. Please remove extra items from your cart.";
           return;
         }
 
         const email = document.getElementById("email").value.trim();
-        if (!email) {
-          feedbackEl.innerText = "Email is required.";
-          return;
-        }
 
-        feedbackEl.innerText = "";
+        const items = cart.map((c) => ({ pizzaId: c.pizzaId, qty: c.qty }));
 
         fetch("/orders", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            items: [
-              {
-                pizzaId: selectedPizza.id,
-                qty: Number(document.getElementById("qty").value),
-              },
-            ],
-            email,
+            items: items,
+            email: email,
             promoCode: document.getElementById("promo").value,
           }),
         })
-          .then((r) => r.json())
-          .then((data) => {
-            if (data && data.error) {
-              feedbackEl.innerText = data.error;
-              return;
+          .then((r) => {
+            if (!r.ok) {
+              return r.text().then((body) => {
+                let message = "Failed to place order.";
+                if (body) {
+                  try {
+                    const err = JSON.parse(body);
+                    if (err && typeof err === "object") {
+                      if (typeof err.error === "string" && err.error) {
+                        message = err.error;
+                      } else if (
+                        typeof err.message === "string" &&
+                        err.message
+                      ) {
+                        message = err.message;
+                      }
+                    }
+                  } catch (_) {
+                    // Ignore JSON parse errors
+                  }
+                }
+                throw new Error(message);
+              });
             }
+            return r.json();
+          })
+          .then((data) => {
+            feedbackEl.className = "mt-3 text-sm text-green-600";
+            feedbackEl.innerText = "✓ Order placed successfully!";
 
-            feedbackEl.innerText = "Order placed successfully.";
+            const resultEl = document.getElementById("result");
+            resultEl.innerText = JSON.stringify(data, null, 2);
+            resultEl.classList.remove("hidden");
+
+            // Reset cart
+            cart = [];
+            renderPizzas();
+            updateSummary();
+          })
+          .catch((err) => {
+            feedbackEl.className = "mt-3 text-sm text-red-600";
+            feedbackEl.innerText =
+              err && err.message ? err.message : "Failed to place order.";
           });
       }
     </script>

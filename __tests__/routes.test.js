@@ -229,6 +229,15 @@ describe('GET /orders/user/:email', () => {
         expect(res.status).toBe(400);
         expect(res.body).toEqual({ error: 'invalid email' });
     });
+
+    test('500 — erreur DB lors de la récupération des commandes par email', async () => {
+        orders.getOrdersByEmail.mockImplementation((email, cb) => cb(new Error('DB failure')));
+
+        const res = await request(app).get('/orders/user/client@example.com');
+
+        expect(res.status).toBe(500);
+        expect(res.body).toEqual({ error: 'db error' });
+    });
 });
 
 // ─────────────────────────────────────────────
@@ -239,5 +248,18 @@ describe('Routes inexistantes', () => {
         const res = await request(app).get('/route-inexistante');
 
         expect(res.status).toBe(404);
+    });
+});
+
+// ─────────────────────────────────────────────
+// GET /config
+// ─────────────────────────────────────────────
+describe('GET /config', () => {
+    test('200 — retourne la configuration', async () => {
+        const res = await request(app).get('/config');
+
+        expect(res.status).toBe(200);
+        expect(res.body).toHaveProperty('TVA_RATE');
+        expect(res.body).toHaveProperty('DEFAULT_PIZZA_PRICE');
     });
 });
