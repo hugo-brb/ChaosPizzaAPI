@@ -17,6 +17,15 @@ describe("GET /pizzas", () => {
   });
 });
 
+describe("GET /utils.js", () => {
+  test("devrait servir le fichier utils.js", async () => {
+    const response = await request(app).get("/utils.js");
+    expect(response.status).toBe(200);
+    expect(response.type).toBe("application/javascript");
+    expect(response.text).toContain("module.exports");
+  });
+});
+
 describe("POST /orders", () => {
   test("devrait créer une commande valide", async () => {
     const order = {
