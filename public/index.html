@@ -272,22 +272,26 @@
         const hint = document.getElementById("emailHint");
         const emailInput = document.getElementById("email");
         const emailValue = emailInput.value.trim();
-        const valid = emailValue !== "" && emailInput.validity.valid;
+        const hasItems = Array.isArray(cart) ? cart.length > 0 : false;
+        const valid = emailValue !== "" && emailInput.validity.valid && hasItems;
 
         if (valid) {
           btn.disabled = false;
           btn.className = "mt-4 w-full bg-black text-white py-3 rounded-lg hover:bg-gray-800 transition-colors cursor-pointer";
           hint.className = "text-xs text-green-500 mt-1";
-          hint.innerText = "✓ Valid email";
+          hint.innerText = "✓ Ready to place your order";
         } else {
           btn.disabled = true;
           btn.className = "mt-4 w-full bg-gray-300 text-gray-500 py-3 rounded-lg cursor-not-allowed transition-colors";
           if (emailValue === "") {
             hint.className = "text-xs text-gray-400 mt-1";
-            hint.innerText = "Required to place an order";
-          } else {
+            hint.innerText = "Email is required to place an order";
+          } else if (!emailInput.validity.valid) {
             hint.className = "text-xs text-red-500 mt-1";
             hint.innerText = "Please enter a valid email address";
+          } else if (!hasItems) {
+            hint.className = "text-xs text-gray-400 mt-1";
+            hint.innerText = "Add at least one pizza to your cart to place an order";
           }
         }
       }
