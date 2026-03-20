@@ -305,13 +305,6 @@
           feedbackEl.innerText = "Please add at least one pizza to your cart.";
           return;
         }
-
-        if (cart.length > 1) {
-          feedbackEl.innerText =
-            "Only one pizza can be ordered at a time right now. Please remove extra items from your cart.";
-          return;
-        }
-
         const email = document.getElementById("email").value.trim();
 
         const items = cart.map((c) => ({ pizzaId: c.pizzaId, qty: c.qty }));
