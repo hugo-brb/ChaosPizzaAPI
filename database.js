@@ -34,6 +34,9 @@ db.serialize(() => {
     "CREATE TABLE IF NOT EXISTS pizzas (id INTEGER PRIMARY KEY, name TEXT, price REAL, stock INTEGER)",
   );
   db.run(
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_pizzas_name_unique ON pizzas(name)",
+  );
+  db.run(
     "CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY AUTOINCREMENT, total REAL, status TEXT, promo TEXT, email TEXT)",
   );
   ensureOrdersEmailColumn();
@@ -48,30 +51,14 @@ db.serialize(() => {
   ];
 
   defaultPizzas.forEach((pizza) => {
-    db.get(
-      "SELECT COUNT(*) as count FROM pizzas WHERE name = ?",
-      [pizza.name],
-      (err, row) => {
-        if (err) {
+    db.run(
+      "INSERT OR IGNORE INTO pizzas (name, price, stock) VALUES (?, ?, ?)",
+      [pizza.name, pizza.price, pizza.stock],
+      (insertErr) => {
+        if (insertErr) {
           console.error(
-            "Failed to check existing pizza count for default seed:",
-            err,
-          );
-          return;
-        }
-
-        if (row && row.count === 0) {
-          db.run(
-            "INSERT INTO pizzas (name, price, stock) VALUES (?, ?, ?)",
-            [pizza.name, pizza.price, pizza.stock],
-            (insertErr) => {
-              if (insertErr) {
-                console.error(
-                  "Failed to insert default pizza record:",
-                  insertErr,
-                );
-              }
-            },
+            "Failed to insert default pizza record:",
+            insertErr,
           );
         }
       },
