@@ -44,11 +44,11 @@ describe("database.js — initialisation", () => {
 
     require("../database");
 
-    // 3 appels à db.run : CREATE pizzas, CREATE orders, CREATE INDEX
+    // 4 appels à db.run : CREATE pizzas, CREATE INDEX unique, CREATE orders, CREATE INDEX email
     const runCalls = mockRun.mock.calls;
     expect(runCalls[0][0]).toContain("CREATE TABLE IF NOT EXISTS pizzas");
-    expect(runCalls[1][0]).toContain("CREATE TABLE IF NOT EXISTS orders");
-    expect(runCalls[2][0]).toContain("CREATE INDEX IF NOT EXISTS");
+    expect(runCalls[2][0]).toContain("CREATE TABLE IF NOT EXISTS orders");
+    expect(runCalls[3][0]).toContain("CREATE INDEX IF NOT EXISTS");
   });
 });
 
@@ -179,44 +179,19 @@ describe("database.js — seed des pizzas", () => {
     require("../database");
 
     const insertCalls = mockRun.mock.calls.filter((c) =>
-      c[0].includes("INSERT INTO pizzas"),
+      c[0].includes("INSERT OR IGNORE INTO pizzas"),
     );
     expect(insertCalls).toHaveLength(3);
   });
 
-  test("n'insère pas les pizzas si count > 0", () => {
-    mockAll.mockImplementation((query, cb) => {
-      cb(null, [{ name: "email" }]);
-    });
-    mockGet.mockImplementation((query, params, cb) => {
-      cb(null, { count: 1 });
-    });
-
-    require("../database");
-
-    const insertCalls = mockRun.mock.calls.filter((c) =>
-      c[0].includes("INSERT INTO pizzas"),
-    );
-    expect(insertCalls).toHaveLength(0);
+  /* Note: The current implementation uses INSERT OR IGNORE for each pizza, 
+     so we don't have a check for count > 0 before seeding anymore. */
+  test("ne fait rien si row est null lors du seed (obsolète)", () => {
+    // Ce test reste ici pour la structure mais le code actuel ne fait plus de SELECT count
   });
 
-  test("log une erreur si le SELECT count échoue", () => {
-    const consoleSpy = jest.spyOn(console, "error").mockImplementation();
-
-    mockAll.mockImplementation((query, cb) => {
-      cb(null, [{ name: "email" }]);
-    });
-    mockGet.mockImplementation((query, params, cb) => {
-      cb(new Error("SELECT failed"));
-    });
-
-    require("../database");
-
-    expect(consoleSpy).toHaveBeenCalledWith(
-      "Failed to check existing pizza count for default seed:",
-      expect.any(Error),
-    );
-    consoleSpy.mockRestore();
+  /* Note: SELECT count is no longer used in the current implementation */
+  test("ne fait rien si SELECT count échoue (obsolète)", () => {
   });
 
   test("log une erreur si l'INSERT d'une pizza échoue", () => {
@@ -225,12 +200,9 @@ describe("database.js — seed des pizzas", () => {
     mockAll.mockImplementation((query, cb) => {
       cb(null, [{ name: "email" }]);
     });
-    mockGet.mockImplementation((query, params, cb) => {
-      cb(null, { count: 0 });
-    });
     mockRun.mockImplementation((query, ...rest) => {
       const cb = rest[rest.length - 1];
-      if (typeof cb === "function" && query.includes("INSERT INTO pizzas")) {
+      if (typeof cb === "function" && query.includes("INSERT OR IGNORE INTO pizzas")) {
         cb(new Error("INSERT failed"));
       } else if (typeof cb === "function") {
         cb(null);

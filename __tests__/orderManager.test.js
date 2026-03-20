@@ -186,6 +186,22 @@ describe("createOrder — validation", () => {
     expect(cb).toHaveBeenCalledWith({ error: "invalid email" });
   });
 
+  test("rejette un email avec un domaine trop long (> 253)", () => {
+    const cb = jest.fn();
+    const longDomain = `a@${'a'.repeat(250)}.example.com`; // total > 253
+    createOrder({ email: longDomain, items: [{ pizzaId: 1, qty: 1 }] }, cb);
+    expect(cb).toHaveBeenCalledWith({ error: "invalid email" });
+  });
+
+  test("rejette un email avec un label de domaine commençant ou finissant par un tiret", () => {
+    const cbStart = jest.fn();
+    const cbEnd = jest.fn();
+    createOrder({ email: "a@-abc.com", items: [{ pizzaId: 1, qty: 1 }] }, cbStart);
+    createOrder({ email: "a@abc-.com", items: [{ pizzaId: 1, qty: 1 }] }, cbEnd);
+    expect(cbStart).toHaveBeenCalledWith({ error: "invalid email" });
+    expect(cbEnd).toHaveBeenCalledWith({ error: "invalid email" });
+  });
+
   test("rejette un email avec un label de domaine vide (..)", () => {
     const cb = jest.fn();
     createOrder({ email: "a@example..com", items: [{ pizzaId: 1, qty: 1 }] }, cb);
@@ -298,6 +314,24 @@ describe("createOrder — calcul du total", () => {
           { pizzaId: 1, qty: 1 },
         ],
       },
+      cb,
+    );
+    jest.runAllTimers();
+  });
+
+  test("total calculation fallback if total is 0 and no promo code", (done) => {
+    // pizza price = 0
+    pizza.getPizzaPrice.mockReturnValue(0);
+    setupDbSuccess();
+
+    const cb = jest.fn((err, result) => {
+      // should hit the fallback total = 10
+      expect(result.totalHT).toBe(10);
+      done();
+    });
+
+    createOrder(
+      { email: "client@example.com", items: [{ pizzaId: 1, qty: 1 }] },
       cb,
     );
     jest.runAllTimers();
